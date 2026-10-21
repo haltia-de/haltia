@@ -439,19 +439,24 @@ def test_sandbox(tree, kit, cmd):
     return a + ["--", *cmd]
 
 
-def kit_copy():
-    """A plain copy of haltia-de/kit's main for tests that import haltia_kit."""
+def kit_copy(out):
+    """A plain copy of haltia-de/kit's main in out, for tests that import
+    haltia_kit. Jobs run side by side: the shared kit clone is updated under
+    a lock, and every job gets its own copy."""
+    import fcntl
+
     clone = CACHE_DIR / "clones" / "kit"
-    if not clone.exists():
-        clone.parent.mkdir(parents=True, exist_ok=True)
-        sh("gh", "repo", "clone", "haltia-de/kit", str(clone), "--", "--no-checkout")
-    git(clone, "fetch", "--prune", "origin")
-    default = git(clone, "symbolic-ref", "--short", "refs/remotes/origin/HEAD").strip()
-    out = CACHE_DIR / "kit-for-tests"
+    clone.parent.mkdir(parents=True, exist_ok=True)
+    with open(CACHE_DIR / "kit.lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if not clone.exists():
+            sh("gh", "repo", "clone", "haltia-de/kit", str(clone), "--", "--no-checkout")
+        git(clone, "fetch", "--prune", "origin")
+        default = git(clone, "symbolic-ref", "--short", "refs/remotes/origin/HEAD").strip()
+        tar = subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-C", str(clone), "archive",
+                              default], check=True, capture_output=True).stdout
     shutil.rmtree(out, ignore_errors=True)
     out.mkdir(parents=True)
-    tar = subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-C", str(clone), "archive", default],
-                         check=True, capture_output=True).stdout
     subprocess.run(["tar", "-x", "-C", str(out)], input=tar, check=True)
     return out
 
@@ -461,8 +466,9 @@ def run_tests(tree, kit, log):
     cmd = test_command(tree)
     if cmd is None:
         return True, ""
-    scratch = CACHE_DIR / "test-run"
-    shutil.rmtree(scratch, ignore_errors=True)
+    import tempfile
+
+    scratch = Path(tempfile.mkdtemp(prefix="test-run-", dir=CACHE_DIR))
     sh("rsync", "-a", "--exclude=.git", f"--exclude=/{OUT}", f"{tree}/", f"{scratch}/")
     try:
         r = subprocess.run(test_sandbox(scratch, kit, cmd), capture_output=True, text=True,
@@ -560,15 +566,18 @@ def run_job(repo, number, model, cfg, path):
     # is committed. A failure blocks only when the same tests pass on the base:
     # tests already broken before the executor do not hold its work back.
     if test_command(work):
-        kit = kit_copy() if repo != "kit" else None
-        passed, tail = run_tests(work, kit, path / "tests.log")
-        if not passed:
-            base_passed, _ = run_tests(clone, kit, path / "tests.log")
-            if base_passed:
-                block(repo, number, f"The {model} executor's change fails the repository's tests, "
-                      "which pass without it; nothing was pushed. The end of the output:\n\n"
-                      f"```\n{tail}\n```")
-                return "tests-failed"
+        kit = kit_copy(work.parent / f"{work.name}-kit") if repo != "kit" else None
+        try:
+            passed, tail = run_tests(work, kit, path / "tests.log")
+            base_passed = not passed and run_tests(clone, kit, path / "tests.log")[0]
+        finally:
+            if kit:
+                shutil.rmtree(kit, ignore_errors=True)
+        if not passed and base_passed:
+            block(repo, number, f"The {model} executor's change fails the repository's tests, "
+                  "which pass without it; nothing was pushed. The end of the output:\n\n"
+                  f"```\n{tail}\n```")
+            return "tests-failed"
     # Copy the executor's files back over the clone's tree; symlinks stay links.
     sh("rsync", "-a", "--delete", "--exclude=.git", f"--exclude=/{OUT}", f"{work}/", f"{clone}/")
     git(clone, "add", "-A")
