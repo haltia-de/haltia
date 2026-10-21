@@ -1,0 +1,8 @@
+[Unit]
+Description=Haltia dispatcher: start executors for agent:ready issues
+
+[Service]
+Type=oneshot
+# PATH with claude, codex, grok and gh; see orchestrator/README.md.
+EnvironmentFile=-%h/.config/haltia/dispatch.env
+ExecStart=/usr/bin/python3 %h/.local/share/haltia-dispatch/haltia_dispatch.py tick --live

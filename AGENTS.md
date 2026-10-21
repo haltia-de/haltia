@@ -58,6 +58,12 @@ The agent started here does not write product code. It:
   `agent:ready` issues, at most two at a time. When a model's subscription limit
   is reached, it marks the issue `agent:blocked`; it never moves the issue to
   another model on its own.
+- **Executors have scoped rights** (ADR 0006): they only edit files in their
+  worktree; the dispatcher commits, pushes, opens the PR and moves labels.
+  Give each dispatched issue exactly one `model:` label. Label issues that need
+  the test tablet `needs:tablet`; the dispatcher leaves them to live sessions.
+  Do not mark `model:grok` issues `agent:ready` until `grok -p` with file
+  edits is verified.
 
 ### Authority
 
