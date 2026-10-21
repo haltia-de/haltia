@@ -52,6 +52,8 @@ DEFAULTS = {
 
 
 
+TEST_TIMEOUT = 600  # seconds for one run of a repository's tests
+
 QUOTA_RE = re.compile(
     r"(usage|rate|quota)[ _-]?limit|limit (reached|exceeded)|quota exceeded|out of credits|"
     r"hit your (usage )?limit|too many requests",
@@ -413,6 +415,68 @@ def prepare(repo, number):
     return clone, work, branch, base
 
 
+def test_command(tree):
+    """How a repository runs its tests, or None when it has none."""
+    if (tree / "tests" / "run.sh").is_file():
+        return ["sh", "tests/run.sh"]
+    if (tree / "tests").is_dir() and any((tree / "tests").glob("test*.py")):
+        # unittest exits 5 when it finds no TestCase: some repositories' tests
+        # are plain scripts that assert as they run.
+        return ["sh", "-c", 'python3 -m unittest discover -s tests; rc=$?; [ "$rc" -eq 5 ] || exit "$rc"; '
+                'for f in tests/test*.py; do python3 "$f" || exit 1; done']
+    return None
+
+
+def test_sandbox(tree, kit, cmd):
+    """bwrap for a repository's tests: no network, an empty home, /mnt/data and
+    /run/user hidden; only the tree under test (writable) and kit (read-only)."""
+    a = ["bwrap", "--die-with-parent", "--new-session", "--unshare-all", "--cap-drop", "ALL",
+         "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp",
+         "--tmpfs", f"/run/user/{os.getuid()}", "--tmpfs", "/mnt/data", "--tmpfs", str(HOME),
+         "--bind", str(tree), str(tree), "--chdir", str(tree), "--setenv", "HOME", str(HOME)]
+    if kit:
+        a += ["--ro-bind", str(kit), str(kit), "--setenv", "PYTHONPATH", str(kit)]
+    return a + ["--", *cmd]
+
+
+def kit_copy():
+    """A plain copy of haltia-de/kit's main for tests that import haltia_kit."""
+    clone = CACHE_DIR / "clones" / "kit"
+    if not clone.exists():
+        clone.parent.mkdir(parents=True, exist_ok=True)
+        sh("gh", "repo", "clone", "haltia-de/kit", str(clone), "--", "--no-checkout")
+    git(clone, "fetch", "--prune", "origin")
+    default = git(clone, "symbolic-ref", "--short", "refs/remotes/origin/HEAD").strip()
+    out = CACHE_DIR / "kit-for-tests"
+    shutil.rmtree(out, ignore_errors=True)
+    out.mkdir(parents=True)
+    tar = subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-C", str(clone), "archive", default],
+                         check=True, capture_output=True).stdout
+    subprocess.run(["tar", "-x", "-C", str(out)], input=tar, check=True)
+    return out
+
+
+def run_tests(tree, kit, log):
+    """Run a copy of tree's tests in the test sandbox; (passed, output tail)."""
+    cmd = test_command(tree)
+    if cmd is None:
+        return True, ""
+    scratch = CACHE_DIR / "test-run"
+    shutil.rmtree(scratch, ignore_errors=True)
+    sh("rsync", "-a", "--exclude=.git", f"--exclude=/{OUT}", f"{tree}/", f"{scratch}/")
+    try:
+        r = subprocess.run(test_sandbox(scratch, kit, cmd), capture_output=True, text=True,
+                           timeout=TEST_TIMEOUT, stdin=subprocess.DEVNULL)
+        ok, text = r.returncode == 0, r.stdout + r.stderr
+    except subprocess.TimeoutExpired:
+        ok, text = False, f"the tests ran longer than {TEST_TIMEOUT} s"
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+    with open(log, "a") as fh:
+        fh.write(f"=== {' '.join(cmd)} in {tree.name}: {'passed' if ok else 'FAILED'}\n{text}\n")
+    return ok, text[-3000:]
+
+
 def can_write(repo, login, cache):
     """True if `login` has write access to the repository (its real permission, not
     the issue's author_association)."""
@@ -492,6 +556,19 @@ def run_job(repo, number, model, cfg, path):
         block(repo, number, f"The {model} executor left git metadata in its copy ({', '.join(found[:5])}); "
               "nothing was committed.")
         return "tampered"
+    # The repository's tests, on a copy of the executor's result, before anything
+    # is committed. A failure blocks only when the same tests pass on the base:
+    # tests already broken before the executor do not hold its work back.
+    if test_command(work):
+        kit = kit_copy() if repo != "kit" else None
+        passed, tail = run_tests(work, kit, path / "tests.log")
+        if not passed:
+            base_passed, _ = run_tests(clone, kit, path / "tests.log")
+            if base_passed:
+                block(repo, number, f"The {model} executor's change fails the repository's tests, "
+                      "which pass without it; nothing was pushed. The end of the output:\n\n"
+                      f"```\n{tail}\n```")
+                return "tests-failed"
     # Copy the executor's files back over the clone's tree; symlinks stay links.
     sh("rsync", "-a", "--delete", "--exclude=.git", f"--exclude=/{OUT}", f"{work}/", f"{clone}/")
     git(clone, "add", "-A")

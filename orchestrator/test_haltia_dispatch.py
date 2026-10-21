@@ -135,6 +135,24 @@ class SandboxTest(unittest.TestCase):
             self.assertGreater(args.index(str(work)), args.index(str(d.HOME)))
 
 
+class TestCommandTest(unittest.TestCase):
+    def test_choice(self):
+        with tempfile.TemporaryDirectory() as t:
+            tree = Path(t)
+            self.assertIsNone(d.test_command(tree))
+            (tree / "tests").mkdir()
+            (tree / "tests" / "test_a.py").write_text("")
+            self.assertEqual(d.test_command(tree)[:2], ["sh", "-c"])
+            (tree / "tests" / "run.sh").write_text("")
+            self.assertEqual(d.test_command(tree), ["sh", "tests/run.sh"])
+
+    def test_sandbox_has_no_network(self):
+        args = d.test_sandbox(Path("/x"), Path("/k"), ["true"])
+        self.assertIn("--unshare-all", args)
+        self.assertNotIn("--share-net", args)
+        self.assertIn(("--setenv", "PYTHONPATH"), list(zip(args, args[1:])))
+
+
 class PermissionTest(unittest.TestCase):
     def test_can_write_uses_real_permission_and_caches(self):
         calls = []

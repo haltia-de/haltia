@@ -72,6 +72,8 @@ The agent started here does not write product code. It:
   and moves labels.
   They run in bwrap with an empty home, `/mnt/data` and `/run/user`, and may
   search the web for documentation (ADR 0010).
+  Before committing, the dispatcher runs the repository's tests on the
+  result without network and blocks the issue when they newly fail.
   Give each dispatched issue exactly one `model:` label. Label issues that need
   the test tablet `needs:tablet`; the dispatcher leaves them to live sessions.
 
