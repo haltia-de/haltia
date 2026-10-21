@@ -405,10 +405,16 @@ def run_job(repo, number, model, cfg, path):
     out.mkdir()
     prompt = build_prompt(PROMPT_FILE.read_text(), repo, issue, OUT)
 
+    # The executor runs in a scope of its own, and everything left in it is killed
+    # when it exits: no process of its may change the copy while it is read.
+    scope = unit_name(repo, number) + "-executor"
     log = path / "executor.log"
     with log.open("w") as f:
-        rc = subprocess.run(executor_cmd(model, prompt, work, cfg), cwd=work,
+        rc = subprocess.run(["systemd-run", "--user", "--scope", "--quiet", "--collect", f"--unit={scope}",
+                             *executor_cmd(model, prompt, work, cfg)], cwd=work,
                             stdin=subprocess.DEVNULL, stdout=f, stderr=subprocess.STDOUT).returncode
+    sh("systemctl", "--user", "kill", "--signal=SIGKILL", f"{scope}.scope", check=False)
+    sh("systemctl", "--user", "stop", f"{scope}.scope", check=False)
     log_text = log.read_text(errors="replace")
 
     if rc != 0 and hit_quota(log_text):

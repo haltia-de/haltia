@@ -78,8 +78,11 @@ The agent started here does not write product code. It:
 ### Authority
 
 - Commit and push only in this repository.
-- In other repositories, open issues and PRs. Never merge, never push to
-  their `main`, never tag.
+- In other repositories, open issues and PRs, and merge a PR (squash, delete
+  the branch) once its ADR 0008 review passed with nothing blocking (ADR 0009).
+  Do not merge a PR with blocking findings, or one whose merge publishes
+  something by itself (check what a push to `main` runs first). Never push
+  to their `main`, never tag.
 - **Releases need the user's approval.** That means the user's word in the
   chat, or the label `release:approved`, checked to have been set by the user's
   GitHub account and not by an agent.
