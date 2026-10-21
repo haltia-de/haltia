@@ -64,7 +64,7 @@ The agent started here does not write product code. It:
   Grok's PRs, a fresh Claude session for your own PRs. Post their findings
   as a PR comment.
 - **The dispatcher** (`orchestrator/`, step 3 of ADR 0005) starts executors for
-  `agent:ready` issues, at most two at a time. When a model's subscription limit
+  `agent:ready` issues, at most `max_running` at a time (4 since 21 October 2026, the author's decision; ADR 0005 said two). When a model's subscription limit
   is reached, it marks the issue `agent:blocked`; it never moves the issue to
   another model on its own.
 - **Executors have scoped rights** (ADR 0006): they only edit a plain copy
