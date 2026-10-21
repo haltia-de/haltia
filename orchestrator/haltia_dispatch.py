@@ -407,10 +407,17 @@ def run_job(repo, number, model, cfg, path):
 
     # The executor runs in a scope of its own, and everything left in it is killed
     # when it exits: no process of its may change the copy while it is read.
-    scope = unit_name(repo, number) + "-executor"
+    # A scope leaves the job unit's cgroup, so it gets the same limits and dies with it.
+    job_unit = unit_name(repo, number)
+    scope = job_unit + "-executor"
+    sh("systemctl", "--user", "stop", f"{scope}.scope", check=False)
     log = path / "executor.log"
     with log.open("w") as f:
         rc = subprocess.run(["systemd-run", "--user", "--scope", "--quiet", "--collect", f"--unit={scope}",
+                             f"--property=MemoryMax={cfg['memory_max']}",
+                             f"--property=RuntimeMaxSec={int(cfg['timeout_minutes']) * 60}",
+                             f"--property=BindsTo={job_unit}.service",
+                             f"--property=PartOf={job_unit}.service",
                              *executor_cmd(model, prompt, work, cfg)], cwd=work,
                             stdin=subprocess.DEVNULL, stdout=f, stderr=subprocess.STDOUT).returncode
     sh("systemctl", "--user", "kill", "--signal=SIGKILL", f"{scope}.scope", check=False)
