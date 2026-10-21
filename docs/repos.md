@@ -21,11 +21,13 @@
 | [messenger](https://github.com/haltia-de/messenger) | программа | мессенджер MAX без браузера | apk, deb, Flatpak | `haltia-de/messenger` | есть / есть |
 | [paint](https://github.com/haltia-de/paint) | программа | раскраска по номерам | apk, deb, Flatpak | `haltia-de/paint` | есть / есть |
 | [firefox](https://github.com/haltia-de/firefox) | программа | Firefox для сенсорного экрана и слабого железа | apk | `haltia-de/firefox` | есть / есть |
+| [camera](https://github.com/haltia-de/camera) | программа | Камера: одна кнопка, снимки для человека и для других программ (`haltia_kit.camera`) | apk | `haltia-de/camera` | — |
 | [ci](https://github.com/haltia-de/ci) | упаковка | общий выпуск по тегам: apk, deb, Flatpak (`@v1`) | — | `haltia-de/ci` | есть / есть |
 | [packages](https://github.com/haltia-de/packages) | упаковка | репозитории apk, apt и Flatpak на GitHub Pages, метапакеты | репозитории | `haltia-de/packages` | есть / есть |
 | [device-lenovo-b8000h](https://github.com/haltia-de/device-lenovo-b8000h) | устройство | Lenovo YOGA Tablet 10 B8000-H: ядро 7.1, драйверы, остров GPU, образы Pertin Haltia | образы, ядро, остров | `haltia-de/device-lenovo-b8000h` | есть / есть |
 | [libnice](https://github.com/haltia-de/libnice) | упаковка | libnice 0.1.23 для Alpine armv7 под именем Alpine (в Alpine 0.1.22, а webrtcbin нужен ≥0.1.23); заплата уходит и в aports | apk | `haltia-de/libnice` | — |
 | [gst-webrtc](https://github.com/haltia-de/gst-webrtc) | упаковка | `haltia-gst-webrtc`: webrtcbin и libgstwebrtcnice к gst-plugins-bad Alpine, для звонков | apk | `haltia-de/gst-webrtc` | — |
+| [libcamera](https://github.com/haltia-de/libcamera) | упаковка | libcamera для Alpine armv7 с заплатами планшета: SENINF MT6589, OV9760, обработка на процессоре | apk | `haltia-de/libcamera` | — |
 | paint-android (закрытый) | исследование | Раскраска для Android: исследование и план | — | `haltia-de/paint-android` | есть / нет |
 
 ## Кто работает в репозитории
