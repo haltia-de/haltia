@@ -11,8 +11,8 @@
 | [shell](https://github.com/haltia-de/shell) | оболочка | панель, домашний экран, «✕», фильтр касаний, клавиатура, поворот, настройки, обновления, тема | apk | `b8k-shell` | есть / есть |
 | [kit](https://github.com/haltia-de/kit) | библиотека | `haltia_kit`: вопросы, настройки, звук, фото (GTK 3) | apk, deb, Flatpak-модуль | `b8k-compat` (лишний клон `kit`) | есть / есть |
 | [files](https://github.com/haltia-de/files) | программа | Файлы и Галерея | apk | `haltia-files` | есть / есть |
-| [text](https://github.com/haltia-de/text) | программа | блокнот | apk | `b8k-text` | нет / нет |
-| [calendar](https://github.com/haltia-de/calendar) | программа | настенный календарь | apk | `b8k-calendar` | нет / нет |
+| [text](https://github.com/haltia-de/text) | программа | блокнот | apk | `b8k-text` | есть / есть |
+| [calendar](https://github.com/haltia-de/calendar) | программа | настенный календарь | apk | `b8k-calendar` | есть / есть |
 | [news](https://github.com/haltia-de/news) | программа | новости RSS | apk, deb, Flatpak | `b8k-news` | есть / есть |
 | [weather](https://github.com/haltia-de/weather) | программа | погода (Gismeteo) | apk, deb, Flatpak | `b8k-weather` | есть / есть |
 | [video](https://github.com/haltia-de/video) | программа | видео: YouTube и другие источники | apk, deb, Flatpak | `b8k-video` | есть / есть |
