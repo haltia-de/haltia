@@ -57,6 +57,28 @@ class HelpersTest(unittest.TestCase):
             (out / "status").write_text("done\n")
             self.assertEqual(d.read_status(out), ("done", ""))
 
+    def test_out_files_never_follow_links(self):
+        with tempfile.TemporaryDirectory() as t:
+            secret = Path(t) / "secret"
+            secret.write_text("token")
+            out = Path(t) / "out"
+            out.mkdir()
+            (out / "pr.md").symlink_to(secret)
+            self.assertEqual(d.read_out(out, "pr.md"), "")
+            (out / "commit.txt").write_text("x" * 100)
+            self.assertEqual(d.read_out(out, "commit.txt", limit=10), "x" * 10)
+            link = Path(t) / "linked-out"
+            link.symlink_to(out)
+            self.assertEqual(d.read_out(link, "commit.txt"), "")
+
+    def test_nested_git(self):
+        with tempfile.TemporaryDirectory() as t:
+            work = Path(t)
+            (work / "a" / "b").mkdir(parents=True)
+            self.assertEqual(d.nested_git(work), [])
+            (work / "a" / "b" / ".git").write_text("gitdir: /elsewhere")
+            self.assertEqual(d.nested_git(work), ["a/b/.git"])
+
     def test_split_pr(self):
         self.assertEqual(d.split_pr("# Fix links.\n\nBody.", 3), ("Fix links.", "Body."))
         self.assertEqual(d.split_pr("", 3), ("Work on issue #3.", ""))

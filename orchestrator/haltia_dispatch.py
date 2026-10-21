@@ -124,12 +124,29 @@ def hit_quota(log_text):
     return bool(QUOTA_RE.search(log_text[-20000:]))
 
 
+def read_out(out_dir, name, limit=65536):
+    """Read one of the executor's output files, or "" if it is missing.
+
+    Never follows a symlink: the text goes into a public commit and PR, and a link
+    could point at any file the dispatcher can read."""
+    if out_dir.is_symlink() or not out_dir.is_dir():
+        return ""
+    try:
+        fd = os.open(out_dir / name, os.O_RDONLY | os.O_NOFOLLOW)
+    except OSError:
+        return ""
+    with os.fdopen(fd, "rb") as f:
+        return f.read(limit).decode("utf-8", errors="replace")
+
+
+def nested_git(work):
+    """Paths of any .git file or directory the executor left in its copy."""
+    return [str(p.relative_to(work)) for p in work.rglob(".git")]
+
+
 def read_status(out_dir):
     """Return ("done", "") or ("blocked", reason) from the executor's status file."""
-    try:
-        text = (out_dir / "status").read_text().strip()
-    except OSError:
-        return "done", ""
+    text = read_out(out_dir, "status").strip()
     if text.lower().startswith("blocked"):
         return "blocked", text.split(":", 1)[1].strip() if ":" in text else ""
     return "done", ""
@@ -295,12 +312,12 @@ def prepare(repo, number):
     remote_branch = git(clone, "ls-remote", "--heads", "origin", branch).strip()
     base = f"origin/{branch}" if remote_branch else default
     git(clone, "checkout", "-q", "-f", "-B", branch, base)
-    git(clone, "clean", "-q", "-fdx")
+    git(clone, "clean", "-q", "-ffdx")
 
     work = CACHE_DIR / "work" / job_key(repo, number)
     shutil.rmtree(work, ignore_errors=True)
     work.mkdir(parents=True)
-    sh("rsync", "-a", "--exclude=/.git", f"{clone}/", f"{work}/")
+    sh("rsync", "-a", "--exclude=.git", f"{clone}/", f"{work}/")
     return clone, work, branch, base
 
 
@@ -362,11 +379,15 @@ def run_job(repo, number, model, cfg, path):
         block(repo, number, reason or "The executor stopped and gave no reason.")
         return "blocked"
 
+    if found := nested_git(work):
+        block(repo, number, f"The {model} executor left git metadata in its copy ({', '.join(found[:5])}); "
+              "nothing was committed.")
+        return "tampered"
     # Copy the executor's files back over the clone's tree; symlinks stay links.
-    sh("rsync", "-a", "--delete", "--exclude=/.git", f"--exclude=/{OUT}", f"{work}/", f"{clone}/")
+    sh("rsync", "-a", "--delete", "--exclude=.git", f"--exclude=/{OUT}", f"{work}/", f"{clone}/")
     git(clone, "add", "-A")
     if git(clone, "diff", "--cached", "--name-only").strip():
-        msg = (out / "commit.txt").read_text().strip() if (out / "commit.txt").exists() else ""
+        msg = read_out(out, "commit.txt").strip()
         git(clone, "commit", "-q", "-F", "-", input=(msg or f"Work on issue #{number}.") +
             f"\n\nExecutor: {model} (haltia dispatcher)\n")
     if not git(clone, "rev-list", f"{base}..HEAD").strip():
@@ -376,7 +397,7 @@ def run_job(repo, number, model, cfg, path):
     git(clone, "push", "-q", "origin", f"HEAD:refs/heads/{branch}")
     prs = gh_json("pr", "list", "-R", f"{ORG}/{repo}", "--head", branch, "--state", "open", "--json", "number")
     if not prs:
-        pr_text = (out / "pr.md").read_text() if (out / "pr.md").exists() else ""
+        pr_text = read_out(out, "pr.md")
         title, body = split_pr(pr_text, number)
         body = f"{body}\n\nCloses #{number}.\n\nExecutor: {model} (haltia dispatcher). " \
                "Review by another model (ADR 0005).\n"
