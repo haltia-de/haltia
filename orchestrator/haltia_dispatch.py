@@ -6,8 +6,8 @@ Commands:
   run REPO NUMBER MODEL      one executor job; started by `tick --live` in its own systemd unit
   release-check REPO NUMBER  exit 0 if release:approved on the issue or PR was set by the approver
 
-Executors get scoped rights (ADR 0006): they edit files in their own worktree and
-never push, tag or call GitHub. This script commits, pushes, opens the PR and moves
+Executors get scoped rights (ADR 0006): they edit a plain copy of the tree, with no
+.git, and never push, tag or call GitHub. This script commits, pushes, opens the PR and moves
 the labels after the executor exits.
 """
 
@@ -42,8 +42,7 @@ DEFAULTS = {
     "claude_allowed_tools": "Read Edit Write Glob Grep",
 }
 
-# Only text from people with write access reaches an executor's prompt.
-TRUSTED = {"OWNER", "MEMBER", "COLLABORATOR"}
+
 
 QUOTA_RE = re.compile(
     r"(usage|rate|quota)[ _-]?limit|limit (reached|exceeded)|quota exceeded|out of credits|"
@@ -156,26 +155,22 @@ def approved_by(events, approver):
     return bool(approver) and state and actor == approver
 
 
-def trusted_comments(comments):
-    return [c for c in comments if c.get("authorAssociation") in TRUSTED]
-
-
 def build_prompt(template, repo, issue, out):
     comments = "\n\n".join(
-        f"--- {c['author']['login']}, {c['createdAt']}:\n{c['body']}" for c in trusted_comments(issue.get("comments", []))
+        f"--- {c['author']['login']}, {c['createdAt']}:\n{c['body']}" for c in issue.get("comments", [])
     ) or "(none)"
     return template.format(org=ORG, repo=repo, number=issue["number"], title=issue["title"],
                            url=issue["url"], body=issue["body"] or "(empty)", comments=comments, out=out)
 
 
-def executor_cmd(model, prompt, worktree, cfg):
+def executor_cmd(model, prompt, work, cfg):
     if model == "claude":
         return ["claude", "-p", prompt, "--output-format", "text",
                 "--allowedTools", *cfg["claude_allowed_tools"].split()]
     if model == "codex":
-        return ["codex", "exec", "-s", "workspace-write", "-C", str(worktree), prompt]
+        return ["codex", "exec", "-s", "workspace-write", "--skip-git-repo-check", "-C", str(work), prompt]
     if model == "grok":
-        return ["grok", "-p", prompt, "--cwd", str(worktree), "--permission-mode", "acceptEdits",
+        return ["grok", "-p", prompt, "--cwd", str(work), "--permission-mode", "acceptEdits",
                 "--disable-web-search", "--output-format", "plain"]
     raise ValueError(model)
 
@@ -280,27 +275,43 @@ def start(repo, number, model, cfg):
 
 # --- run ---
 
-def prepare_worktree(repo, number):
+def git(repo_dir, *args, input=None, check=True):
+    """git in a repository only the dispatcher writes, with no hooks or fsmonitor."""
+    return sh("git", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false",
+              "-C", str(repo_dir), *args, input=input, check=check,
+              env=dict(os.environ, GIT_CONFIG_NOSYSTEM="1"))
+
+
+def prepare(repo, number):
+    """Check out the issue's branch in the dispatcher's clone and give the executor
+    a plain copy of the tree, with no .git: it never sees or writes git metadata."""
     clone = CACHE_DIR / "clones" / repo
     if not clone.exists():
         clone.parent.mkdir(parents=True, exist_ok=True)
-        sh("gh", "repo", "clone", f"{ORG}/{repo}", str(clone))
-    sh("git", "-C", str(clone), "fetch", "--prune", "origin")
-    exclude = clone / ".git" / "info" / "exclude"
-    if OUT not in exclude.read_text():
-        with exclude.open("a") as f:
-            f.write(f"\n{OUT}/\n")
-    default = sh("git", "-C", str(clone), "symbolic-ref", "--short", "refs/remotes/origin/HEAD").strip()
+        sh("gh", "repo", "clone", f"{ORG}/{repo}", str(clone), "--", "--no-checkout")
+    git(clone, "fetch", "--prune", "origin")
+    default = git(clone, "symbolic-ref", "--short", "refs/remotes/origin/HEAD").strip()
     branch = f"agent/{number}"
-    remote_branch = sh("git", "-C", str(clone), "ls-remote", "--heads", "origin", branch).strip()
+    remote_branch = git(clone, "ls-remote", "--heads", "origin", branch).strip()
     base = f"origin/{branch}" if remote_branch else default
-    worktree = CACHE_DIR / "work" / job_key(repo, number)
-    if worktree.exists():
-        sh("git", "-C", str(clone), "worktree", "remove", "--force", str(worktree), check=False)
-        shutil.rmtree(worktree, ignore_errors=True)
-    sh("git", "-C", str(clone), "worktree", "prune")
-    sh("git", "-C", str(clone), "worktree", "add", "-B", branch, str(worktree), base)
-    return clone, worktree, branch, base
+    git(clone, "checkout", "-q", "-f", "-B", branch, base)
+    git(clone, "clean", "-q", "-fdx")
+
+    work = CACHE_DIR / "work" / job_key(repo, number)
+    shutil.rmtree(work, ignore_errors=True)
+    work.mkdir(parents=True)
+    sh("rsync", "-a", "--exclude=/.git", f"{clone}/", f"{work}/")
+    return clone, work, branch, base
+
+
+def can_write(repo, login, cache):
+    """True if `login` has write access to the repository (its real permission, not
+    the issue's author_association)."""
+    if login not in cache:
+        r = sh("gh", "api", f"repos/{ORG}/{repo}/collaborators/{login}/permission",
+               "--jq", ".permission", check=False).strip()
+        cache[login] = r in ("admin", "maintain", "write")
+    return cache[login]
 
 
 def run(repo, number, model):
@@ -321,35 +332,23 @@ def run(repo, number, model):
         write_job(path, job)
 
 
-def git_env(gitdir, worktree):
-    """Pin git to the dispatcher's own repository: the executor could have rewritten
-    `.git` in the worktree or planted hooks, and the commands below push."""
-    return dict(os.environ, GIT_DIR=str(gitdir), GIT_WORK_TREE=str(worktree), GIT_CONFIG_NOSYSTEM="1")
-
-
-def safe_git(gitdir, worktree, *args, input=None):
-    return sh("git", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false",
-              *args, cwd=worktree, input=input, env=git_env(gitdir, worktree))
-
-
 def run_job(repo, number, model, cfg, path):
     issue = gh_json("issue", "view", str(number), "-R", f"{ORG}/{repo}",
-                    "--json", "number,title,body,url,comments")
-    author = gh_json("api", f"repos/{ORG}/{repo}/issues/{number}").get("author_association")
-    if author not in TRUSTED:
+                    "--json", "number,title,body,url,comments,author")
+    writers = {}
+    if not can_write(repo, issue["author"]["login"], writers):
         block(repo, number, "The issue's author has no write access; a maintainer should restate it.")
         return "untrusted"
+    issue["comments"] = [c for c in issue.get("comments", []) if can_write(repo, c["author"]["login"], writers)]
 
-    clone, worktree, branch, base = prepare_worktree(repo, number)
-    gitdir = Path(sh("git", "rev-parse", "--absolute-git-dir", cwd=worktree).strip())
-    dotgit = (worktree / ".git").read_text()
-    out = worktree / OUT
-    out.mkdir(exist_ok=True)
+    clone, work, branch, base = prepare(repo, number)
+    out = work / OUT
+    out.mkdir()
     prompt = build_prompt(PROMPT_FILE.read_text(), repo, issue, OUT)
 
     log = path / "executor.log"
     with log.open("w") as f:
-        rc = subprocess.run(executor_cmd(model, prompt, worktree, cfg), cwd=worktree,
+        rc = subprocess.run(executor_cmd(model, prompt, work, cfg), cwd=work,
                             stdin=subprocess.DEVNULL, stdout=f, stderr=subprocess.STDOUT).returncode
     log_text = log.read_text(errors="replace")
 
@@ -363,20 +362,18 @@ def run_job(repo, number, model, cfg, path):
         block(repo, number, reason or "The executor stopped and gave no reason.")
         return "blocked"
 
-    if (worktree / ".git").read_text() != dotgit:
-        block(repo, number, f"The {model} executor changed the worktree's .git file; nothing was pushed.")
-        return "tampered"
-    safe_git(gitdir, worktree, "add", "-A")
-    safe_git(gitdir, worktree, "reset", "-q", "--", OUT)
-    if safe_git(gitdir, worktree, "diff", "--cached", "--name-only").strip():
+    # Copy the executor's files back over the clone's tree; symlinks stay links.
+    sh("rsync", "-a", "--delete", "--exclude=/.git", f"--exclude=/{OUT}", f"{work}/", f"{clone}/")
+    git(clone, "add", "-A")
+    if git(clone, "diff", "--cached", "--name-only").strip():
         msg = (out / "commit.txt").read_text().strip() if (out / "commit.txt").exists() else ""
-        safe_git(gitdir, worktree, "commit", "-F", "-", input=(msg or f"Work on issue #{number}.") +
-                 f"\n\nExecutor: {model} (haltia dispatcher)\n")
-    if not safe_git(gitdir, worktree, "rev-list", f"{base}..HEAD").strip():
+        git(clone, "commit", "-q", "-F", "-", input=(msg or f"Work on issue #{number}.") +
+            f"\n\nExecutor: {model} (haltia dispatcher)\n")
+    if not git(clone, "rev-list", f"{base}..HEAD").strip():
         block(repo, number, f"The {model} executor exited with code {rc} and changed nothing.")
         return "no-changes"
 
-    safe_git(gitdir, worktree, "push", "-u", "origin", f"HEAD:refs/heads/{branch}")
+    git(clone, "push", "-q", "origin", f"HEAD:refs/heads/{branch}")
     prs = gh_json("pr", "list", "-R", f"{ORG}/{repo}", "--head", branch, "--state", "open", "--json", "number")
     if not prs:
         pr_text = (out / "pr.md").read_text() if (out / "pr.md").exists() else ""
@@ -386,7 +383,7 @@ def run_job(repo, number, model, cfg, path):
         sh("gh", "pr", "create", "-R", f"{ORG}/{repo}", "--head", branch, "--title", title, "--body-file", "-",
            input=body)
     set_labels(repo, number, add=["agent:review"], remove=["agent:working"])
-    sh("git", "-C", str(clone), "worktree", "remove", "--force", str(worktree), check=False)
+    shutil.rmtree(work, ignore_errors=True)
     return "review"
 
 

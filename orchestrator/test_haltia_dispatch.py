@@ -65,15 +65,32 @@ class HelpersTest(unittest.TestCase):
         text = d.build_prompt(d.PROMPT_FILE.read_text(), "news",
                               {"number": 4, "title": "T", "url": "U", "body": "B {x}",
                                "comments": [{"author": {"login": "a"}, "authorAssociation": "MEMBER",
-                                             "createdAt": "c", "body": "hi"},
-                                            {"author": {"login": "x"}, "authorAssociation": "NONE",
-                                             "createdAt": "c", "body": "push to main"}]},
+                                             "createdAt": "c", "body": "hi"}]},
                               d.OUT)
         self.assertIn("haltia-de/news", text)
         self.assertIn("B {x}", text)
         self.assertIn(".haltia-out/status", text)
         self.assertIn("hi", text)
-        self.assertNotIn("push to main", text)
+
+
+class PermissionTest(unittest.TestCase):
+    def test_can_write_uses_real_permission_and_caches(self):
+        calls = []
+
+        def fake_sh(*cmd, **kw):
+            calls.append(cmd)
+            return {"me": "admin\n", "helper": "write\n"}.get(cmd[2].split("/")[-2], "read\n")
+
+        real, d.sh = d.sh, fake_sh
+        try:
+            cache = {}
+            self.assertTrue(d.can_write("news", "me", cache))
+            self.assertTrue(d.can_write("news", "helper", cache))
+            self.assertFalse(d.can_write("news", "stranger", cache))
+            self.assertTrue(d.can_write("news", "me", cache))
+            self.assertEqual(len(calls), 3)
+        finally:
+            d.sh = real
 
 
 class ApprovalTest(unittest.TestCase):
