@@ -7,7 +7,7 @@
 | Репозиторий | Слой | Что это | Выпускает | Локальная папка | CLAUDE.md / AGENTS.md |
 |---|---|---|---|---|---|
 | [haltia](https://github.com/haltia-de/haltia) | проект | архитектура, ADR, планы, правила, ключи, диспетчер агентов | — | `haltia-de/haltia` | есть / есть |
-| [.github](https://github.com/haltia-de/.github) | проект | профиль организации, знак и бренд (`brand/`) | — | `haltia-github` | нет / нет |
+| [.github](https://github.com/haltia-de/.github) | проект | профиль организации, знак и бренд (`brand/`) | — | `haltia-github` | есть / есть |
 | [shell](https://github.com/haltia-de/shell) | оболочка | панель, домашний экран, «✕», фильтр касаний, клавиатура, поворот, настройки, обновления, тема | apk | `b8k-shell` | есть / есть |
 | [kit](https://github.com/haltia-de/kit) | библиотека | `haltia_kit`: вопросы, настройки, звук, фото (GTK 3) | apk, deb, Flatpak-модуль | `b8k-compat` (лишний клон `kit`) | есть / есть |
 | [files](https://github.com/haltia-de/files) | программа | Файлы и Галерея | apk | `haltia-files` | есть / есть |
