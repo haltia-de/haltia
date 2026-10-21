@@ -400,7 +400,7 @@ def run_job(repo, number, model, cfg, path):
         pr_text = read_out(out, "pr.md")
         title, body = split_pr(pr_text, number)
         body = f"{body}\n\nCloses #{number}.\n\nExecutor: {model} (haltia dispatcher). " \
-               "Review by another model (ADR 0005).\n"
+               "Review per ADR 0008.\n"
         sh("gh", "pr", "create", "-R", f"{ORG}/{repo}", "--head", branch, "--title", title, "--body-file", "-",
            input=body)
     set_labels(repo, number, add=["agent:review"], remove=["agent:working"])

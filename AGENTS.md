@@ -47,19 +47,22 @@ The agent started here does not write product code. It:
   - `kind:mechanical`, `kind:feature`, `kind:research`.
 - **Who does what** (at the start; Claude leads):
   - Claude: architecture, the kernel and device, the shell, new features, and anything that needs the test tablet.
-  - Codex (ChatGPT): mechanical work, and second-opinion reviews.
+  - Codex (ChatGPT): mechanical work, and reviews of Grok's PRs.
   - Grok: mechanical work and research.
-- **Review.** A PR is reviewed by a model other than the one that wrote it.
-  Claude reviews Codex and Grok; Codex reviews Claude.
+- **Review** (ADR 0008) goes only downward: Claude reviews Codex and Grok;
+  Codex reviews Grok; a Claude PR is reviewed by another Claude session (you,
+  or a fresh session when you wrote it). Grok reviews nobody; Codex never
+  reviews Claude.
 - **Urgent live work** goes to the repository's running session, with a link
   to the issue when there is one (ADR 0007). Live sessions are named agents in
   herdr: check `herdr agent get`, send with `herdr agent prompt <name> "…"
   --wait`, read with `herdr agent read`. `SendMessage` is the fallback between
   Claude sessions. A `blocked` agent (an approval or trust question) waits
   for the user's answer.
-- **Codex reviews of Claude PRs** run in herdr: a Codex agent started with
-  `-s read-only -a never` in a clone of the PR branch under
-  `~/.cache/haltia-review/<repo>`; post its findings as a PR comment.
+- **Reviewer agents** run in herdr in a clone of the PR branch under
+  `~/.cache/haltia-review/<repo>`: Codex with `-s read-only -a never` for
+  Grok's PRs, a fresh Claude session for your own PRs. Post their findings
+  as a PR comment.
 - **The dispatcher** (`orchestrator/`, step 3 of ADR 0005) starts executors for
   `agent:ready` issues, at most two at a time. When a model's subscription limit
   is reached, it marks the issue `agent:blocked`; it never moves the issue to
