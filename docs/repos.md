@@ -21,7 +21,7 @@
 | [paint](https://github.com/haltia-de/paint) | программа | раскраска по номерам | apk, deb, Flatpak | `b8k-paint` | есть / есть |
 | [firefox](https://github.com/haltia-de/firefox) | программа | Firefox для сенсорного экрана и слабого железа | apk | `b8k-firefox` | есть / есть |
 | [ci](https://github.com/haltia-de/ci) | упаковка | общий выпуск по тегам: apk, deb, Flatpak (`@v1`) | — | `b8k-ci` | есть / есть |
-| [packages](https://github.com/haltia-de/packages) | упаковка | репозитории apk, apt и Flatpak на GitHub Pages, метапакеты | репозитории | `haltia-packages` | нет / нет |
+| [packages](https://github.com/haltia-de/packages) | упаковка | репозитории apk, apt и Flatpak на GitHub Pages, метапакеты | репозитории | `haltia-packages` | есть / есть |
 | [device-lenovo-b8000h](https://github.com/haltia-de/device-lenovo-b8000h) | устройство | Lenovo YOGA Tablet 10 B8000-H: ядро 7.1, драйверы, остров GPU, образы Pertin Haltia | образы, ядро, остров | `lenovo-b8000h-linux` | есть / есть |
 | paint-android (закрытый) | исследование | Раскраска для Android: исследование и план | — | `paint-android` | есть / нет |
 
