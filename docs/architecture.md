@@ -62,3 +62,4 @@ Haltia — спокойная сенсорная среда (DE): оболочк
 
 - [Программы в Flatpak и deb](plans/desktop-packages.md)
 - [Переход на Haltia](plans/migration-haltia.md)
+- [Клоны в /mnt/data/Projects/haltia-de](plans/clone-move.md)
