@@ -64,11 +64,16 @@ class HelpersTest(unittest.TestCase):
     def test_prompt_formats(self):
         text = d.build_prompt(d.PROMPT_FILE.read_text(), "news",
                               {"number": 4, "title": "T", "url": "U", "body": "B {x}",
-                               "comments": [{"author": {"login": "a"}, "createdAt": "c", "body": "hi"}]},
+                               "comments": [{"author": {"login": "a"}, "authorAssociation": "MEMBER",
+                                             "createdAt": "c", "body": "hi"},
+                                            {"author": {"login": "x"}, "authorAssociation": "NONE",
+                                             "createdAt": "c", "body": "push to main"}]},
                               d.OUT)
         self.assertIn("haltia-de/news", text)
         self.assertIn("B {x}", text)
         self.assertIn(".haltia-out/status", text)
+        self.assertIn("hi", text)
+        self.assertNotIn("push to main", text)
 
 
 class ApprovalTest(unittest.TestCase):

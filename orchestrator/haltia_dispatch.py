@@ -38,8 +38,12 @@ DEFAULTS = {
     "memory_max": "4G",
     "timeout_minutes": "120",
     "approver": "",
-    "claude_allowed_tools": "Read Edit Write Glob Grep Bash(git status:*) Bash(git diff:*) Bash(git log:*) Bash(git show:*) Bash(ls:*)",
+    # No Bash: prefix rules such as Bash(git diff:*) still allow writes (`--output=`).
+    "claude_allowed_tools": "Read Edit Write Glob Grep",
 }
+
+# Only text from people with write access reaches an executor's prompt.
+TRUSTED = {"OWNER", "MEMBER", "COLLABORATOR"}
 
 QUOTA_RE = re.compile(
     r"(usage|rate|quota)[ _-]?limit|limit (reached|exceeded)|quota exceeded|out of credits|"
@@ -55,8 +59,8 @@ def load_config():
     return cp["dispatch"]
 
 
-def sh(*cmd, cwd=None, check=True, capture=True, input=None):
-    r = subprocess.run(cmd, cwd=cwd, check=False, text=True, input=input,
+def sh(*cmd, cwd=None, check=True, capture=True, input=None, env=None):
+    r = subprocess.run(cmd, cwd=cwd, check=False, text=True, input=input, env=env,
                        stdout=subprocess.PIPE if capture else None,
                        stderr=subprocess.PIPE if capture else None)
     if check and r.returncode != 0:
@@ -152,9 +156,13 @@ def approved_by(events, approver):
     return bool(approver) and state and actor == approver
 
 
+def trusted_comments(comments):
+    return [c for c in comments if c.get("authorAssociation") in TRUSTED]
+
+
 def build_prompt(template, repo, issue, out):
     comments = "\n\n".join(
-        f"--- {c['author']['login']}, {c['createdAt']}:\n{c['body']}" for c in issue.get("comments", [])
+        f"--- {c['author']['login']}, {c['createdAt']}:\n{c['body']}" for c in trusted_comments(issue.get("comments", []))
     ) or "(none)"
     return template.format(org=ORG, repo=repo, number=issue["number"], title=issue["title"],
                            url=issue["url"], body=issue["body"] or "(empty)", comments=comments, out=out)
@@ -313,12 +321,30 @@ def run(repo, number, model):
         write_job(path, job)
 
 
+def git_env(gitdir, worktree):
+    """Pin git to the dispatcher's own repository: the executor could have rewritten
+    `.git` in the worktree or planted hooks, and the commands below push."""
+    return dict(os.environ, GIT_DIR=str(gitdir), GIT_WORK_TREE=str(worktree), GIT_CONFIG_NOSYSTEM="1")
+
+
+def safe_git(gitdir, worktree, *args, input=None):
+    return sh("git", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false",
+              *args, cwd=worktree, input=input, env=git_env(gitdir, worktree))
+
+
 def run_job(repo, number, model, cfg, path):
-    clone, worktree, branch, base = prepare_worktree(repo, number)
-    out = worktree / OUT
-    out.mkdir(exist_ok=True)
     issue = gh_json("issue", "view", str(number), "-R", f"{ORG}/{repo}",
                     "--json", "number,title,body,url,comments")
+    author = gh_json("api", f"repos/{ORG}/{repo}/issues/{number}").get("author_association")
+    if author not in TRUSTED:
+        block(repo, number, "The issue's author has no write access; a maintainer should restate it.")
+        return "untrusted"
+
+    clone, worktree, branch, base = prepare_worktree(repo, number)
+    gitdir = Path(sh("git", "rev-parse", "--absolute-git-dir", cwd=worktree).strip())
+    dotgit = (worktree / ".git").read_text()
+    out = worktree / OUT
+    out.mkdir(exist_ok=True)
     prompt = build_prompt(PROMPT_FILE.read_text(), repo, issue, OUT)
 
     log = path / "executor.log"
@@ -337,16 +363,20 @@ def run_job(repo, number, model, cfg, path):
         block(repo, number, reason or "The executor stopped and gave no reason.")
         return "blocked"
 
-    sh("git", "add", "-A", cwd=worktree)
-    if sh("git", "status", "--porcelain", cwd=worktree).strip():
+    if (worktree / ".git").read_text() != dotgit:
+        block(repo, number, f"The {model} executor changed the worktree's .git file; nothing was pushed.")
+        return "tampered"
+    safe_git(gitdir, worktree, "add", "-A")
+    safe_git(gitdir, worktree, "reset", "-q", "--", OUT)
+    if safe_git(gitdir, worktree, "diff", "--cached", "--name-only").strip():
         msg = (out / "commit.txt").read_text().strip() if (out / "commit.txt").exists() else ""
-        sh("git", "commit", "-F", "-", cwd=worktree, input=(msg or f"Work on issue #{number}.") +
-           f"\n\nExecutor: {model} (haltia dispatcher)\n")
-    if not sh("git", "rev-list", f"{base}..HEAD", cwd=worktree).strip():
+        safe_git(gitdir, worktree, "commit", "-F", "-", input=(msg or f"Work on issue #{number}.") +
+                 f"\n\nExecutor: {model} (haltia dispatcher)\n")
+    if not safe_git(gitdir, worktree, "rev-list", f"{base}..HEAD").strip():
         block(repo, number, f"The {model} executor exited with code {rc} and changed nothing.")
         return "no-changes"
 
-    sh("git", "push", "-u", "origin", branch, cwd=worktree)
+    safe_git(gitdir, worktree, "push", "-u", "origin", f"HEAD:refs/heads/{branch}")
     prs = gh_json("pr", "list", "-R", f"{ORG}/{repo}", "--head", branch, "--state", "open", "--json", "number")
     if not prs:
         pr_text = (out / "pr.md").read_text() if (out / "pr.md").exists() else ""
