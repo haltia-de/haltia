@@ -79,6 +79,28 @@ class HelpersTest(unittest.TestCase):
             (work / "a" / "b" / ".git").write_text("gitdir: /elsewhere")
             self.assertEqual(d.nested_git(work), ["a/b/.git"])
 
+    def test_delete_and_replace(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t)
+            work = root / "work"
+            work.mkdir()
+            (work / "AGENTS.md").write_text("agents")
+            (work / "CLAUDE.md").symlink_to("AGENTS.md")
+            (root / "outside").write_text("keep")
+            (work / "sub").mkdir()
+            out = work / d.OUT
+            (out / "replace").mkdir(parents=True)
+            (out / "replace" / "CLAUDE.md").write_text("@AGENTS.md\n")
+            (out / "replace" / "AGENTS.md").write_text("not asked for")
+            removed = d.delete_requested(work, "CLAUDE.md\n../outside\n/etc/passwd\nsub\n.haltia-out/status\n")
+            self.assertEqual(removed, ["CLAUDE.md"])
+            self.assertTrue((root / "outside").exists())
+            self.assertTrue((work / "sub").is_dir())
+            self.assertEqual(d.apply_replacements(work, out), ["CLAUDE.md"])
+            self.assertFalse((work / "CLAUDE.md").is_symlink())
+            self.assertEqual((work / "CLAUDE.md").read_text(), "@AGENTS.md\n")
+            self.assertEqual((work / "AGENTS.md").read_text(), "agents")
+
     def test_split_pr(self):
         self.assertEqual(d.split_pr("# Fix links.\n\nBody.", 3), ("Fix links.", "Body."))
         self.assertEqual(d.split_pr("", 3), ("Work on issue #3.", ""))

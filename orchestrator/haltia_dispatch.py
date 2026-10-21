@@ -144,6 +144,48 @@ def nested_git(work):
     return [str(p.relative_to(work)) for p in work.rglob(".git")]
 
 
+def delete_requested(work, text):
+    """Remove the files the executor listed in its `delete` file, one path per line.
+
+    Executors without a shell cannot delete or rename. Only files and symlinks
+    inside the copy go: no directories, no `..`, nothing outside `work`."""
+    removed = []
+    root = work.resolve()
+    for line in text.splitlines():
+        rel = line.strip()
+        if not rel or rel.startswith("/") or ".." in Path(rel).parts or Path(rel).parts[:1] == (OUT,):
+            continue
+        target = work / rel
+        if not target.parent.resolve().is_relative_to(root):
+            continue
+        if target.is_symlink() or target.is_file():
+            target.unlink()
+            removed.append(rel)
+    return removed
+
+
+def apply_replacements(work, out_dir):
+    """Copy regular files from `out/replace/` over the same paths in the copy,
+    after delete_requested() removed what they replace (such as a symlink)."""
+    src = out_dir / "replace"
+    if out_dir.is_symlink() or src.is_symlink() or not src.is_dir():
+        return []
+    placed = []
+    for f in sorted(src.rglob("*")):
+        rel = f.relative_to(src)
+        if f.is_symlink() or not f.is_file() or rel.parts[:1] in ((OUT,), (".git",)):
+            continue
+        target = work / rel
+        if target.is_symlink() or target.exists():
+            continue  # only new paths: deletion has to be asked for first
+        if any((work / Path(*rel.parts[:i])).is_symlink() for i in range(1, len(rel.parts))):
+            continue  # a linked folder could lead outside the copy
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(f, target)
+        placed.append(str(rel))
+    return placed
+
+
 def read_status(out_dir):
     """Return ("done", "") or ("blocked", reason) from the executor's status file."""
     text = read_out(out_dir, "status").strip()
@@ -379,6 +421,8 @@ def run_job(repo, number, model, cfg, path):
         block(repo, number, reason or "The executor stopped and gave no reason.")
         return "blocked"
 
+    delete_requested(work, read_out(out, "delete"))
+    apply_replacements(work, out)
     if found := nested_git(work):
         block(repo, number, f"The {model} executor left git metadata in its copy ({', '.join(found[:5])}); "
               "nothing was committed.")

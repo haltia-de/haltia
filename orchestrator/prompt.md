@@ -35,6 +35,10 @@ Rules:
   - `{out}/pr.md`: the pull request title on the first line, then a short
     description in English: what changed, and how it was checked.
   - `{out}/status`: the word `done`.
+  - `{out}/delete`, only if files must go: one path per line, relative to
+    this directory. The dispatcher removes those files (or symlinks) before
+    committing. To replace a symlink with a regular file, list it here and
+    write the new file under the same name in `{out}/replace/`.
 - If you cannot finish (the issue is unclear, it needs a person, another
   repository, the network or the tablet), leave the files as they are and
   write `{out}/status` as `blocked: <the reason in one sentence>`.
