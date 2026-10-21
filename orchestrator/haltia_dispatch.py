@@ -39,7 +39,8 @@ DEFAULTS = {
     "timeout_minutes": "120",
     "approver": "",
     # No Bash: prefix rules such as Bash(git diff:*) still allow writes (`--output=`).
-    "claude_allowed_tools": "Read Edit Write Glob Grep",
+    # Web search and fetch for documentation (ADR 0010).
+    "claude_allowed_tools": "Read Edit Write Glob Grep WebSearch WebFetch",
 }
 
 
@@ -222,18 +223,53 @@ def build_prompt(template, repo, issue, out):
                            url=issue["url"], body=issue["body"] or "(empty)", comments=comments, out=out)
 
 
+HOME = Path.home()
+# What each executor may see of the home folder (ADR 0010): its CLI, read-only,
+# and its own login token, writable so a refreshed token is kept. Nothing else.
+SANDBOX_RO = {"claude": [HOME / ".local/bin/claude", HOME / ".local/share/claude"],
+              "codex": [HOME / ".nvm"],
+              "grok": [HOME / ".local/bin/grok", HOME / ".grok/downloads"]}
+SANDBOX_RW = {"claude": [HOME / ".claude/.credentials.json"],
+              "codex": [HOME / ".codex/auth.json"],
+              "grok": [HOME / ".grok/auth.json", HOME / ".grok/auth.json.lock"]}
+
+
+def sandbox(model, cmd, work, state):
+    """Wrap an executor command in bwrap: the home folder, /mnt/data (signing keys,
+    other clones), /run/user (session bus, keyring, herdr and Claude sockets) and
+    /tmp are empty; only the work copy, the CLI and its token are bound in. The
+    network stays: the CLIs talk to their services and search the web."""
+    a = ["bwrap", "--die-with-parent", "--new-session", "--ro-bind", "/", "/",
+         "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp",
+         "--tmpfs", f"/run/user/{os.getuid()}", "--tmpfs", "/mnt/data", "--tmpfs", str(HOME)]
+    for p in SANDBOX_RO[model]:
+        a += ["--ro-bind", str(p), str(p)]
+    for p in SANDBOX_RW[model]:
+        if p.exists():
+            a += ["--bind", str(p), str(p)]
+    if model == "claude":
+        # A bare settings file: no hooks, plugins or project history of the user's.
+        cj = state / "claude.json"
+        cj.write_text(json.dumps({"hasCompletedOnboarding": True}))
+        a += ["--bind", str(cj), str(HOME / ".claude.json")]
+    return a + ["--bind", str(work), str(work), "--chdir", str(work), "--setenv", "HOME", str(HOME), "--", *cmd]
+
+
 def executor_cmd(model, prompt, work, cfg):
     if model == "claude":
         return ["claude", "-p", prompt, "--output-format", "text",
                 "--allowedTools", *cfg["claude_allowed_tools"].split()]
     if model == "codex":
-        return ["codex", "exec", "-s", "workspace-write", "--skip-git-repo-check", "-C", str(work), prompt]
+        # The sandbox of codex keeps shell commands off the network; --search is
+        # OpenAI's server-side web search.
+        return ["codex", "--search", "exec", "-s", "workspace-write", "--skip-git-repo-check",
+                "-C", str(work), prompt]
     if model == "grok":
-        # The user's ~/.grok/config.toml may say always-approve: confine Grok by its
-        # bwrap sandbox and give it file tools only (no run_terminal_command).
-        return ["grok", "-p", prompt, "--cwd", str(work), "--sandbox", "workspace",
-                "--tools", "read_file,search_replace,list_dir,grep,write",
-                "--disable-web-search", "--output-format", "plain"]
+        # Inside bwrap Grok's own sandbox cannot nest; file and web tools only, no
+        # run_terminal_command. Writes outside the copy land in the empty home.
+        return ["grok", "-p", prompt, "--cwd", str(work), "--always-approve",
+                "--tools", "read_file,search_replace,list_dir,grep,write,web_search,web_fetch",
+                "--output-format", "plain"]
     raise ValueError(model)
 
 
@@ -423,7 +459,7 @@ def run_job(repo, number, model, cfg, path):
                              f"--property=RuntimeMaxSec={int(cfg['timeout_minutes']) * 60}",
                              f"--property=BindsTo={job_unit}.service",
                              f"--property=PartOf={job_unit}.service",
-                             *executor_cmd(model, prompt, work, cfg)], cwd=work,
+                             *sandbox(model, executor_cmd(model, prompt, work, cfg), work, path)], cwd=work,
                             stdin=subprocess.DEVNULL, stdout=f, stderr=subprocess.STDOUT).returncode
     sh("systemctl", "--user", "kill", "--signal=SIGKILL", f"{scope}.scope", check=False)
     sh("systemctl", "--user", "stop", f"{scope}.scope", check=False)

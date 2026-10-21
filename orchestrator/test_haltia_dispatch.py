@@ -117,6 +117,22 @@ class HelpersTest(unittest.TestCase):
         self.assertIn("hi", text)
 
 
+class SandboxTest(unittest.TestCase):
+    def test_hides_home_and_keys(self):
+        with tempfile.TemporaryDirectory() as t:
+            work, state = Path(t) / "work", Path(t)
+            work.mkdir()
+            args = d.sandbox("codex", ["codex", "exec"], work, state)
+            pairs = list(zip(args, args[1:]))
+            for hidden in ("/mnt/data", str(d.HOME), f"/run/user/{d.os.getuid()}", "/tmp"):
+                self.assertIn(("--tmpfs", hidden), pairs)
+            self.assertIn(("--bind", str(work)), pairs)
+            self.assertNotIn(str(d.HOME / ".claude/.credentials.json"), args)
+            self.assertEqual(args[args.index("--") + 1:], ["codex", "exec"])
+            # The work copy is bound after the home folder is emptied.
+            self.assertGreater(args.index(str(work)), args.index(str(d.HOME)))
+
+
 class PermissionTest(unittest.TestCase):
     def test_can_write_uses_real_permission_and_caches(self):
         calls = []

@@ -57,6 +57,7 @@ Haltia — спокойная сенсорная среда (DE): оболочк
 | [0007](adr/0007-herdr-live-sessions.md) | Живые сеансы и ревьюер в herdr |
 | [0008](adr/0008-review-order.md) | Кто кого проверяет |
 | [0009](adr/0009-architect-merges.md) | Архитектор сливает проверенные PR |
+| [0010](adr/0010-executor-web-and-sandbox.md) | Поиск в сети для исполнителей и песочница bwrap |
 
 ## Планы
 

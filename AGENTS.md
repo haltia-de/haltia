@@ -70,6 +70,8 @@ The agent started here does not write product code. It:
 - **Executors have scoped rights** (ADR 0006): they only edit a plain copy
   of the tree, without `.git`; the dispatcher commits, pushes, opens the PR
   and moves labels.
+  They run in bwrap with an empty home, `/mnt/data` and `/run/user`, and may
+  search the web for documentation (ADR 0010).
   Give each dispatched issue exactly one `model:` label. Label issues that need
   the test tablet `needs:tablet`; the dispatcher leaves them to live sessions.
 
