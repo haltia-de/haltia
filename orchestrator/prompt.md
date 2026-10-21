@@ -21,9 +21,8 @@ Comments:
 Rules:
 
 - Read AGENTS.md and CLAUDE.md in this repository first, if they exist, and
-  the shared conventions at
-  https://github.com/haltia-de/haltia/blob/main/docs/conventions.md as they
-  are quoted in the issue. Follow them.
+  the shared conventions in `{out}/conventions.md` (a copy of
+  haltia-de/haltia's `docs/conventions.md`; do not fetch it). Follow them.
 - Do only what the issue asks. Keep the change small and in the style of the
   surrounding code.
 - Do not commit, push, tag, release or call GitHub. Do not touch the test

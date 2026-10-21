@@ -406,6 +406,8 @@ def run_job(repo, number, model, cfg, path):
     clone, work, branch, base = prepare(repo, number)
     out = work / OUT
     out.mkdir()
+    # Executors have no network: give them the shared rules to read locally.
+    shutil.copyfile(HERE.parent / "docs" / "conventions.md", out / "conventions.md")
     prompt = build_prompt(PROMPT_FILE.read_text(), repo, issue, OUT)
 
     # The executor runs in a scope of its own, and everything left in it is killed
