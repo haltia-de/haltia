@@ -24,6 +24,8 @@
 | [ci](https://github.com/haltia-de/ci) | упаковка | общий выпуск по тегам: apk, deb, Flatpak (`@v1`) | — | `haltia-de/ci` | есть / есть |
 | [packages](https://github.com/haltia-de/packages) | упаковка | репозитории apk, apt и Flatpak на GitHub Pages, метапакеты | репозитории | `haltia-de/packages` | есть / есть |
 | [device-lenovo-b8000h](https://github.com/haltia-de/device-lenovo-b8000h) | устройство | Lenovo YOGA Tablet 10 B8000-H: ядро 7.1, драйверы, остров GPU, образы Pertin Haltia | образы, ядро, остров | `haltia-de/device-lenovo-b8000h` | есть / есть |
+| [libnice](https://github.com/haltia-de/libnice) | упаковка | libnice 0.1.23 для Alpine armv7 под именем Alpine (в Alpine 0.1.22, а webrtcbin нужен ≥0.1.23); заплата уходит и в aports | apk | `haltia-de/libnice` | — |
+| [gst-webrtc](https://github.com/haltia-de/gst-webrtc) | упаковка | `haltia-gst-webrtc`: webrtcbin и libgstwebrtcnice к gst-plugins-bad Alpine, для звонков | apk | `haltia-de/gst-webrtc` | — |
 | paint-android (закрытый) | исследование | Раскраска для Android: исследование и план | — | `haltia-de/paint-android` | есть / нет |
 
 ## Кто работает в репозитории
