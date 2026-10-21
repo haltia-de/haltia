@@ -39,8 +39,15 @@ DEFAULTS = {
     "timeout_minutes": "120",
     "approver": "",
     # No Bash: prefix rules such as Bash(git diff:*) still allow writes (`--output=`).
-    # Web search and fetch for documentation (ADR 0010).
-    "claude_allowed_tools": "Read Edit Write Glob Grep WebSearch WebFetch",
+    # Web search, and fetching only from documentation sites (ADR 0010): WebFetch
+    # runs on this PC, so an open one could reach the home network.
+    "claude_allowed_tools": "Read Edit Write Glob Grep WebSearch " + " ".join(
+        f"WebFetch(domain:{d})" for d in (
+            "docs.gtk.org", "developer.gnome.org", "gitlab.gnome.org", "pygobject.gnome.org",
+            "lazka.github.io", "docs.python.org", "pypi.org", "docs.flatpak.org",
+            "specifications.freedesktop.org", "www.freedesktop.org", "wiki.alpinelinux.org",
+            "gitlab.alpinelinux.org", "wiki.postmarketos.org", "man7.org", "mpv.io",
+            "github.com", "raw.githubusercontent.com")),
 }
 
 
@@ -239,7 +246,10 @@ def sandbox(model, cmd, work, state):
     other clones), /run/user (session bus, keyring, herdr and Claude sockets) and
     /tmp are empty; only the work copy, the CLI and its token are bound in. The
     network stays: the CLIs talk to their services and search the web."""
-    a = ["bwrap", "--die-with-parent", "--new-session", "--ro-bind", "/", "/",
+    # Own PID, IPC, UTS and cgroup namespaces: without them /proc/<pid>/root of a
+    # host process would lead back to the real home folder.
+    a = ["bwrap", "--die-with-parent", "--new-session", "--unshare-all", "--share-net",
+         "--cap-drop", "ALL", "--ro-bind", "/", "/",
          "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp",
          "--tmpfs", f"/run/user/{os.getuid()}", "--tmpfs", "/mnt/data", "--tmpfs", str(HOME)]
     for p in SANDBOX_RO[model]:
@@ -265,10 +275,11 @@ def executor_cmd(model, prompt, work, cfg):
         return ["codex", "--search", "exec", "-s", "workspace-write", "--skip-git-repo-check",
                 "-C", str(work), prompt]
     if model == "grok":
-        # Inside bwrap Grok's own sandbox cannot nest; file and web tools only, no
-        # run_terminal_command. Writes outside the copy land in the empty home.
+        # Inside bwrap Grok's own sandbox cannot nest; file tools and web search
+        # only: no run_terminal_command, and no web_fetch, which could send its
+        # readable token anywhere. Writes outside the copy land in the empty home.
         return ["grok", "-p", prompt, "--cwd", str(work), "--always-approve",
-                "--tools", "read_file,search_replace,list_dir,grep,write,web_search,web_fetch",
+                "--tools", "read_file,search_replace,list_dir,grep,write,web_search",
                 "--output-format", "plain"]
     raise ValueError(model)
 

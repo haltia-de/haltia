@@ -127,6 +127,8 @@ class SandboxTest(unittest.TestCase):
             for hidden in ("/mnt/data", str(d.HOME), f"/run/user/{d.os.getuid()}", "/tmp"):
                 self.assertIn(("--tmpfs", hidden), pairs)
             self.assertIn(("--bind", str(work)), pairs)
+            self.assertIn("--unshare-all", args)
+            self.assertIn("--share-net", args)
             self.assertNotIn(str(d.HOME / ".claude/.credentials.json"), args)
             self.assertEqual(args[args.index("--") + 1:], ["codex", "exec"])
             # The work copy is bound after the home folder is emptied.
