@@ -511,6 +511,20 @@ def run(repo, number, model):
         write_job(path, job)
 
 
+def pr_comments(repo, number):
+    """Comments and review bodies of the open PR from agent/<number>, as issue
+    comments ({author, createdAt, body}); none when there is no such PR."""
+    prs = gh_json("pr", "list", "-R", f"{ORG}/{repo}", "--head", f"agent/{number}",
+                  "--state", "open", "--json", "number")
+    if not prs:
+        return []
+    pr = gh_json("pr", "view", str(prs[0]["number"]), "-R", f"{ORG}/{repo}",
+                 "--json", "comments,reviews")
+    reviews = [{"author": r["author"], "createdAt": r["submittedAt"], "body": r["body"]}
+               for r in pr.get("reviews", []) if r.get("body")]
+    return pr.get("comments", []) + reviews
+
+
 def run_job(repo, number, model, cfg, path):
     issue = gh_json("issue", "view", str(number), "-R", f"{ORG}/{repo}",
                     "--json", "number,title,body,url,comments,author")
@@ -518,7 +532,11 @@ def run_job(repo, number, model, cfg, path):
     if not can_write(repo, issue["author"]["login"], writers):
         block(repo, number, "The issue's author has no write access; a maintainer should restate it.")
         return "untrusted"
-    issue["comments"] = [c for c in issue.get("comments", []) if can_write(repo, c["author"]["login"], writers)]
+    # A rework: the review findings sit on the open PR of the agent branch, not
+    # on the issue, so its comments and reviews join the issue's in time order.
+    issue["comments"] = issue.get("comments", []) + pr_comments(repo, number)
+    issue["comments"] = [c for c in issue["comments"] if can_write(repo, c["author"]["login"], writers)]
+    issue["comments"].sort(key=lambda c: c["createdAt"])
 
     clone, work, branch, base = prepare(repo, number)
     out = work / OUT

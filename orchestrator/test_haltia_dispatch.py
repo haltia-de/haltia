@@ -173,6 +173,24 @@ class PermissionTest(unittest.TestCase):
             d.sh = real
 
 
+class PrCommentsTest(unittest.TestCase):
+    def test_comments_and_review_bodies_of_the_agent_pr(self):
+        def fake_gh_json(*args):
+            if args[:2] == ("pr", "list"):
+                return [{"number": 8}] if "agent/7" in args else []
+            return {"comments": [{"author": {"login": "me"}, "createdAt": "2026-10-21T10:00:00Z", "body": "fix"}],
+                    "reviews": [{"author": {"login": "me"}, "submittedAt": "2026-10-21T09:00:00Z", "body": "review"},
+                                {"author": {"login": "me"}, "submittedAt": "2026-10-21T09:30:00Z", "body": ""}]}
+
+        real, d.gh_json = d.gh_json, fake_gh_json
+        try:
+            got = d.pr_comments("calendar", 7)
+            self.assertEqual(sorted(c["body"] for c in got), ["fix", "review"])
+            self.assertEqual(d.pr_comments("calendar", 9), [])
+        finally:
+            d.gh_json = real
+
+
 class ApprovalTest(unittest.TestCase):
     def ev(self, kind, actor):
         return {"event": kind, "label": {"name": "release:approved"}, "actor": {"login": actor}}
