@@ -109,6 +109,7 @@ The agent started here does not write product code. It:
 - Private material never enters this public repository: keys, tokens, LAN
   addresses, tablet screenshots with personal data, session names. It stays in
   the local agent memory or in `CLAUDE.local.md` (git-ignored).
-- Local clones live in `/mnt/data/Projects/haltia-de/<repo>`. Until they move
-  (ADR 0005, step 6), `docs/repos.md` maps each repository to its current
-  folder.
+- Local clones live in `/mnt/data/Projects/haltia-de/<repo>` (ADR 0005,
+  step 6, done on 21 October 2026). The old folders (`b8k-*`,
+  `lenovo-b8000h-linux`, …) are symlinks until 4 November 2026; start agent
+  sessions only from the new paths, or Claude keeps memory under the old one.
