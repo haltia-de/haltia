@@ -72,8 +72,6 @@ The agent started here does not write product code. It:
   and moves labels.
   Give each dispatched issue exactly one `model:` label. Label issues that need
   the test tablet `needs:tablet`; the dispatcher leaves them to live sessions.
-  Do not mark `model:grok` issues `agent:ready` until `grok -p` with file
-  edits is verified.
 
 ### Authority
 

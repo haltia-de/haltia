@@ -45,6 +45,4 @@ systemctl --user enable --now ~/.local/share/haltia-dispatch/systemd/haltia-disp
 
 ## Не проверено
 
-- `grok -p` с правкой файлов: задачи `model:grok` до проверки не ставить в
-  `agent:ready`.
 - `codex exec -s workspace-write` на настоящей задаче.

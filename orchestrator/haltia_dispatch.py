@@ -229,7 +229,10 @@ def executor_cmd(model, prompt, work, cfg):
     if model == "codex":
         return ["codex", "exec", "-s", "workspace-write", "--skip-git-repo-check", "-C", str(work), prompt]
     if model == "grok":
-        return ["grok", "-p", prompt, "--cwd", str(work), "--permission-mode", "acceptEdits",
+        # The user's ~/.grok/config.toml may say always-approve: confine Grok by its
+        # bwrap sandbox and give it file tools only (no run_terminal_command).
+        return ["grok", "-p", prompt, "--cwd", str(work), "--sandbox", "workspace",
+                "--tools", "read_file,search_replace,list_dir,grep,write",
                 "--disable-web-search", "--output-format", "plain"]
     raise ValueError(model)
 
