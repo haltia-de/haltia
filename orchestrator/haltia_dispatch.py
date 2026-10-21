@@ -47,7 +47,7 @@ DEFAULTS = {
             "lazka.github.io", "docs.python.org", "pypi.org", "docs.flatpak.org",
             "specifications.freedesktop.org", "www.freedesktop.org", "wiki.alpinelinux.org",
             "gitlab.alpinelinux.org", "wiki.postmarketos.org", "man7.org", "mpv.io",
-            "github.com", "raw.githubusercontent.com")),
+            "github.com", "raw.githubusercontent.com", "www.gnu.org", "spdx.org")),
 }
 
 
