@@ -66,3 +66,4 @@ Haltia — спокойная сенсорная среда (DE): оболочк
 - [Клоны в /mnt/data/Projects/haltia-de](plans/clone-move.md)
 - [Панель управления агентами](plans/control-panel.md)
 - [Микрофон, камера и звонки MAX](plans/calls.md)
+- [Исправления по аудиту 21 октября](plans/audit-fixes.md)
