@@ -51,9 +51,15 @@ The agent started here does not write product code. It:
   - Grok: mechanical work and research.
 - **Review.** A PR is reviewed by a model other than the one that wrote it.
   Claude reviews Codex and Grok; Codex reviews Claude.
-- **Urgent live work** goes to the repository's running session by
-  cross-session message (Claude Code `SendMessage`), with a link to the issue
-  when there is one.
+- **Urgent live work** goes to the repository's running session, with a link
+  to the issue when there is one (ADR 0007). Live sessions are named agents in
+  herdr: check `herdr agent get`, send with `herdr agent prompt <name> "…"
+  --wait`, read with `herdr agent read`. `SendMessage` is the fallback between
+  Claude sessions. A `blocked` agent (an approval or trust question) waits
+  for the user's answer.
+- **Codex reviews of Claude PRs** run in herdr: a Codex agent started with
+  `-s read-only -a never` in a clone of the PR branch under
+  `~/.cache/haltia-review/<repo>`; post its findings as a PR comment.
 - **The dispatcher** (`orchestrator/`, step 3 of ADR 0005) starts executors for
   `agent:ready` issues, at most two at a time. When a model's subscription limit
   is reached, it marks the issue `agent:blocked`; it never moves the issue to

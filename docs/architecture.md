@@ -54,6 +54,7 @@ Haltia — спокойная сенсорная среда (DE): оболочк
 | [0004](adr/0004-de-apart-from-device.md) | Haltia: DE отдельно от устройства |
 | [0005](adr/0005-root-repo-and-agents.md) | Корневой репозиторий и оркестрация агентов |
 | [0006](adr/0006-scoped-executors.md) | Исполнители с ограниченными правами |
+| [0007](adr/0007-herdr-live-sessions.md) | Живые сеансы и ревьюер в herdr |
 
 ## Планы
 
