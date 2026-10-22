@@ -22,6 +22,7 @@
 | [paint](https://github.com/haltia-de/paint) | программа | раскраска по номерам | apk, deb, Flatpak | `haltia-de/paint` | есть / есть |
 | [firefox](https://github.com/haltia-de/firefox) | программа | Firefox для сенсорного экрана и слабого железа | apk | `haltia-de/firefox` | есть / есть |
 | [camera](https://github.com/haltia-de/camera) | программа | Камера: одна кнопка, снимки для человека и для других программ (`haltia_kit.camera`) | apk | `haltia-de/camera` | — |
+| [mail](https://github.com/haltia-de/mail) | программа | Почта: один ящик человека по IMAP/SMTP, крупные письма, файлы из других программ; через неё уходят отчёты о сбоях | apk | `haltia-de/mail` | — |
 | [ci](https://github.com/haltia-de/ci) | упаковка | общий выпуск по тегам: apk, deb, Flatpak (`@v1`) | — | `haltia-de/ci` | есть / есть |
 | [packages](https://github.com/haltia-de/packages) | упаковка | репозитории apk, apt и Flatpak на GitHub Pages, метапакеты | репозитории | `haltia-de/packages` | есть / есть |
 | [device-lenovo-b8000h](https://github.com/haltia-de/device-lenovo-b8000h) | устройство | Lenovo YOGA Tablet 10 B8000-H: ядро 7.1, драйверы, остров GPU, образы Pertin Haltia | образы, ядро, остров | `haltia-de/device-lenovo-b8000h` | есть / есть |
