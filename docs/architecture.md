@@ -75,3 +75,4 @@ Haltia — спокойная сенсорная среда (DE): оболочк
 - [«Отправить» и просмотр PDF](plans/share-and-documents.md)
 - [Исправления по аудиту 21 октября](plans/audit-fixes.md)
 - [Второй аудит стабильности](plans/audit-2.md)
+- [Lenovo Tab P11 как второе устройство](plans/tab-p11.md)
