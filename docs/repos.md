@@ -43,4 +43,4 @@
 | Устройство | Репозиторий | Состояние |
 |---|---|---|
 | Lenovo YOGA Tablet 10 B8000-H (MT6589, armv7) | device-lenovo-b8000h | образы Pertin Haltia v2.x |
-| Lenovo Tab P11 TB-J606L (SM6115, aarch64) | [device-lenovo-tb-j606l](https://github.com/haltia-de/device-lenovo-tb-j606l) | порт начат, прошивать нечего. План: `docs/plans/tab-p11.md` |
+| Lenovo Tab P11 TB-J606L (SM6115, aarch64) | [device-lenovo-tb-j606l](https://github.com/haltia-de/device-lenovo-tb-j606l) | загрузчик открыт; после неудачного one-shot Android восстановлен на B. Копий разделов и рабочего образа Haltia пока нет. [План и очередь задач](plans/tab-p11.md) |
