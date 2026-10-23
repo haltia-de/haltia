@@ -24,7 +24,10 @@ decisions behind them: ADR 0001 and ADR 0004 (`docs/adr/`).
   theme. It knows programs only through freedesktop standards.
 - **Программа** (program; a repository each): Файлы/Галерея, Текст,
   Календарь, Новости, Погода, Видео, Музыка, Сообщения (MAX), Раскраска,
-  Firefox. Installs and works on its own, in GNOME or KDE as in the shell.
+  Firefox, Камера, Почта. «Документы» (просмотр PDF) — вторая программа
+  в репозитории `files`, пакет `haltia-documents`. Installs and works on
+  its own, in GNOME or KDE as in the shell. Почта на планшете скрыта с
+  домашнего экрана: через неё уходят отчёты помощнику.
 - **Библиотека программ** (kit; `haltia-de/kit`, module `haltia_kit`): code
   the programs share — in-window questions and menus, settings, sound,
   photos. It knows nothing of the shell.
