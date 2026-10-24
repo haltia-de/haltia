@@ -102,6 +102,34 @@ J606F; эти пути и включённые периферийные устр
 
 ## Следующий этап
 
+### Маршрут загрузчика требует отдельной проверки
+
+В [исходном патче автора J606F](https://lkml.iu.edu/hypermail/linux/kernel/2212.1/00913.html)
+описан успешный запуск с appended DTB/header v1 после записи boot и
+замены dtbo/recovery двухбайтовыми пустыми образами. Это опыт J606F
+ревизии 62 в 2022 году, не доказанный рецепт текущего J606L. Команды
+из письма не исполнялись и не переносятся на активный Android B.
+
+В открытом Qualcomm/SHIFT reference ABL
+[`BootLinux.c`](https://github.com/SHIFTPHONES/android_bootable_bootloader_edk2/blob/7d391d8b1059ed48259728cab004ca6f16ee3de2/QcomModulePkg/Library/BootLib/BootLinux.c)
+наличие валидного DTBO выбирает путь SoC DTB с overlay; отсутствие или
+невалидность DTBO — путь полного/appended DTB. В
+[`FastbootCmds.c`](https://github.com/SHIFTPHONES/android_bootable_bootloader_edk2/blob/7d391d8b1059ed48259728cab004ca6f16ee3de2/QcomModulePkg/Library/FastbootLib/FastbootCmds.c)
+downloaded boot вызывает ClearUnbootable перед загрузкой образа; в этом
+reference это обновление атрибутов активного GPT-раздела. Это код другого
+производителя, а не установленные исходники Lenovo production ABL.
+Получение DTBO в downloaded-режиме и поведение текущего Lenovo остаются
+предметом проверки, а не выводом из имени функции или команды fastboot.
+
+Следовательно, новый сценарий должен явно учитывать штатный DTBO,
+recovery и изменения A/B-метаданных. Совпадение заголовка и идентификаторов
+не доказывает, что загрузчик передаст mainline DTB ядру без наложения
+штатного overlay. Если потребуется транзакция со слотом A, она должна
+использовать явные суффиксы и сохранение B; пересоздание или стирание
+общих разделов не является частью диагностического этапа.
+
+### Ограничение первой диагностики
+
 Для диагностического профиля нужны собственные compatible и msm-id
 J606L, подтверждённый board-id выбранной записи, точный source pin,
 проверяемые boot header и состав initramfs. Первый ограниченный результат —
