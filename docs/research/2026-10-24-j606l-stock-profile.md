@@ -36,6 +36,8 @@ super не проверялись. Orange/unlocked не является нез�
 | DTB bytes | 3126185 |
 | Kernel / ramdisk address | 0x8000 / 0x1000000 |
 | Second / tags / DTB address | 0 / 0x100 / 0x1f00000 |
+| OS version / security patch | 11.0.0 / 2023-07 |
+| Packed os_version word | 0x16000177 |
 
 Из DTB-секции извлечены 11 FDT, из штатного DTBO — 17 записей.
 Это не более новый S320435: размер его kernel — 15277626 байт.
@@ -112,14 +114,18 @@ J606F; эти пути и включённые периферийные устр
 
 В открытом Qualcomm/SHIFT reference ABL
 [`BootLinux.c`](https://github.com/SHIFTPHONES/android_bootable_bootloader_edk2/blob/7d391d8b1059ed48259728cab004ca6f16ee3de2/QcomModulePkg/Library/BootLib/BootLinux.c)
-наличие валидного DTBO выбирает путь SoC DTB с overlay; отсутствие или
-невалидность DTBO — путь полного/appended DTB. В
+наличие валидного DTBO выбирает путь SoC DTB с условным overlay;
+отсутствие или невалидность DTBO — путь полного/appended DTB.
+Дополнительная проверка GetDtboNeeded может отключить поиск board overlay
+при полном совпадении DTB в LocateDeviceTree. В
 [`FastbootCmds.c`](https://github.com/SHIFTPHONES/android_bootable_bootloader_edk2/blob/7d391d8b1059ed48259728cab004ca6f16ee3de2/QcomModulePkg/Library/FastbootLib/FastbootCmds.c)
 downloaded boot вызывает ClearUnbootable перед загрузкой образа; в этом
 reference это обновление атрибутов активного GPT-раздела. Это код другого
 производителя, а не установленные исходники Lenovo production ABL.
-Получение DTBO в downloaded-режиме и поведение текущего Lenovo остаются
-предметом проверки, а не выводом из имени функции или команды fastboot.
+В reference
+[`VerifiedBoot.c`](https://github.com/SHIFTPHONES/android_bootable_bootloader_edk2/blob/7d391d8b1059ed48259728cab004ca6f16ee3de2/QcomModulePkg/Library/avb/VerifiedBoot.c)
+downloaded boot пропускает повторную загрузку boot, но всё равно
+запрашивает DTBO. Поведение текущего Lenovo этим reference не доказано.
 
 Следовательно, новый сценарий должен явно учитывать штатный DTBO,
 recovery и изменения A/B-метаданных. Совпадение заголовка и идентификаторов
@@ -143,3 +149,37 @@ J606L, подтверждённый board-id выбранной записи, т
 Ранее проверенный `fastboot set_active b` — аварийный путь; удержание
 питания и Firehose reset проверены при возврате из EDL, а не как
 универсальное восстановление после любого сбоя Linux.
+
+## Локальный прототип диагностического образа
+
+Подготовлен и скомпилирован отдельный RAM/USB-профиль J606L на ядре
+7.1.0 из закреплённого чистого fork pin. Сборка выполняется в контейнере
+с новым закреплённым toolchain image и ARM64 libc headers; пакеты ПК не
+менялись. Источники ядра развёрнуты в отдельную копию без `.git`.
+
+Образ v2 занимает 2056192 байта; SHA256:
+`a9990c894d1a60f6bd06140cd34e6aa848b9880094059a6ba5780a2051ea4ff2`.
+В нём новый mainline DTB с msm-id 444/0x10000 и board-id 34/3.
+Конфигурация отключает BLOCK, MDSS и доступ к накопителю. В initramfs
+только новый статический ARM64 PID1, каталоги и RAM-консоль; оболочки,
+старого init и содержимого разделов нет. Поля OS/security patch сохранены
+как у штатного boot B, дата сборки не подставляется в security metadata.
+
+PID1 передаёт build ID, версию Linux, PID/rootfs и ограниченный ранний
+журнал по USB ACM. Полный кадр журнала проверяется по длине и CRC.
+После окна диагностики запрашивается bootloader; это ещё не доказательство
+возврата в B. Host-сценарий обязан наблюдать режим, восстановить выбор B
+при необходимости и подтвердить Android. Для ранней паники задана
+остановка `panic=0`, а не автоматический цикл повторных загрузок A.
+
+Независимая статическая проверка фактического образа прошла: ARM64 magic
+ядра, статический ELF init, whitelist CPIO, DTB IDs, адреса и штатное
+os_version word. Прошли 13 Python-проверок упаковки, proof parser и
+наблюдателя, а также C-тесты коротких записей, EAGAIN, таймаутов,
+ограничения журнала и побайтовой передачи LF/CR/NUL через реальные PTY.
+Две упаковки совпали побайтово. 25 октября отдельная независимая сборка
+из нового git archive и пустого build-каталога прошла: совпали config,
+статический init, Image.gz, DTB и build ID. Упаковка этих независимо
+собранных компонентов дала тот же полный boot-образ и SHA256.
+Это локальный прототип: PR, окончательный host-сценарий и аппаратная
+проверка нового Linux остаются этапами № 5 и № 6.
