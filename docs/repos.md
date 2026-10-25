@@ -43,4 +43,4 @@
 | Устройство | Репозиторий | Состояние |
 |---|---|---|
 | Lenovo YOGA Tablet 10 B8000-H (MT6589, armv7) | device-lenovo-b8000h | образы Pertin Haltia v2.x |
-| Lenovo Tab P11 TB-J606L (SM6115, aarch64) | [device-lenovo-tb-j606l](https://github.com/haltia-de/device-lenovo-tb-j606l) | Android B работает; критичный резерв проверен и сохранён на двух дисках. Штатные boot/DTBO и AVB разобраны; собран локальный RAM/USB-прототип Linux 7.1 для J606L, аппаратная загрузка ещё не проверена. [План и очередь задач](plans/tab-p11.md) |
+| Lenovo Tab P11 TB-J606L (SM6115, aarch64) | [device-lenovo-tb-j606l](https://github.com/haltia-de/device-lenovo-tb-j606l) | Критичный резерв проверен на двух дисках; воспроизводимый RAM/USB-образ Linux 7.1 собран. Первая проба на A не дала USB-журнала и автоматического возврата B; host-клиенты остановлены, ожидается физический вход в fastboot для возврата Android. Linux/dual boot пока не подтверждены. [План и очередь задач](plans/tab-p11.md) |
