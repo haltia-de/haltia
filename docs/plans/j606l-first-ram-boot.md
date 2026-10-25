@@ -26,6 +26,9 @@ dual boot; постоянного Linux rootfs, Phosh/phoc и ежедневно
 только A. Новый boot не записывается в раздел. Android B сохраняет свои
 boot, DTBO, vbmeta, recovery и данные. Переключение active slot штатно
 меняет A/B metadata; неизменность всей GPT после этого не заявляется.
+В reference выбор слота также переключает partition-slot/GUID mapping
+и UFS boot LUN. Отсутствие TZ/Keymaster/rollback побочных эффектов
+не утверждается; новых rollback indices в наш образ не добавлено.
 
 Причина подготовки DTBO A: в Qualcomm/SHIFT reference downloaded boot
 всё равно получает активный DTBO, а CmdBoot вызывает ClearUnbootable для
@@ -93,6 +96,13 @@ serial и логи в публичный репозиторий не попад�
    обычный reboot. Дважды подтвердить исходные модель, сборку, слот B и
    boot_completed=1. Итоги Linux proof и возврата B хранить отдельно:
    работающий B не доказывает загрузку Linux.
+
+В reference set_active сбрасывает successful выбранного слота. Поэтому
+successful=false сразу после выбора B допустим: до reboot проверяются
+current-slot B, unbootable=false и положительный retry, а итогом служит
+реально завершившаяся загрузка Android B. Если непродолжимая ошибка VB2
+сама вернула рабочий Android B, контроллер подтверждает этот результат
+без повторного Linux boot и без лишнего переключения слота.
 
 Каждая команда имеет deadline, отдельные ограниченные stdout/stderr и
 подтверждённый process-group cleanup. rc=0 недостаточен: на этом fastboot
