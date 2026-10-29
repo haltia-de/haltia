@@ -26,10 +26,19 @@
 | [ci](https://github.com/haltia-de/ci) | упаковка | общий выпуск по тегам: apk, deb, Flatpak (`@v1`) | — | `haltia-de/ci` | есть / есть |
 | [packages](https://github.com/haltia-de/packages) | упаковка | репозитории apk, apt и Flatpak на GitHub Pages, метапакеты | репозитории | `haltia-de/packages` | есть / есть |
 | [device-lenovo-b8000h](https://github.com/haltia-de/device-lenovo-b8000h) | устройство | Lenovo YOGA Tablet 10 B8000-H: ядро 7.1, драйверы, остров GPU, образы Pertin Haltia | образы, ядро, остров | `haltia-de/device-lenovo-b8000h` | есть / есть |
+| [device-lenovo-tb-j606l](https://github.com/haltia-de/device-lenovo-tb-j606l) | устройство | Lenovo Tab P11 TB-J606L: ядро, DTS, профиль и dual boot с Android | локальная сборка; публичного release пока нет | `haltia-de/device-lenovo-tb-j606l` | есть / есть |
 | [libnice](https://github.com/haltia-de/libnice) | упаковка | libnice 0.1.24 для Alpine armv7 под именем Alpine (в Alpine 0.1.22, а webrtcbin нужен ≥0.1.23); заплата уходит и в aports | apk | `haltia-de/libnice` | есть / есть |
 | [gst-webrtc](https://github.com/haltia-de/gst-webrtc) | упаковка | `haltia-gst-webrtc`: webrtcbin и libgstwebrtcnice к gst-plugins-bad Alpine, для голосовых и видеозвонков | apk | `haltia-de/gst-webrtc` | есть / есть |
 | [libcamera](https://github.com/haltia-de/libcamera) | упаковка | libcamera для Alpine armv7 с заплатами планшета: SENINF MT6589, OV9760, обработка на процессоре | apk | `haltia-de/libcamera` | есть / есть |
 | paint-android (закрытый) | исследование | Раскраска для Android: исследование и план | — | `haltia-de/paint-android` | есть / есть |
+
+## Видимость
+
+На 29 октября 2026 GitHub показывает haltia и paint-android приватными,
+остальные 22 репозитория — публичными. Автор согласовал публичный корень
+после проверки дерева и истории; изменение видимости требует отдельного
+подтверждения по подготовленному отчёту. До него внешние ссылки на документы
+корня могут быть недоступны.
 
 ## Кто работает в репозитории
 
@@ -43,4 +52,4 @@
 | Устройство | Репозиторий | Состояние |
 |---|---|---|
 | Lenovo YOGA Tablet 10 B8000-H (MT6589, armv7) | device-lenovo-b8000h | образы Pertin Haltia v2.x |
-| Lenovo Tab P11 TB-J606L (SM6115, aarch64) | [device-lenovo-tb-j606l](https://github.com/haltia-de/device-lenovo-tb-j606l) | После одной пробы R3 Android B автоматически восстановлен и проверен; Linux proof отсутствует. Критичный резерв проверен на двух дисках, Linux 7.1 образ воспроизводим. Готовится observer-first контроллер для записи ранних USB-переходов. Рабочая Haltia и постоянный dual boot пока не подтверждены. [План и очередь задач](plans/tab-p11.md) |
+| Lenovo Tab P11 TB-J606L (SM6115, aarch64) | [device-lenovo-tb-j606l](https://github.com/haltia-de/device-lenovo-tb-j606l) | По документам устройства от 26–28 октября Haltia установлена рядом с Android B: Linux в recovery_b и отдельном разделе haltia. Документированы экран, касание, сеть, звук, камера и s2idle; открыты проблемы загрузки/перезагрузки, звука и сна. Публичного выпуска нет; аппаратная приёмка корнем не повторялась. [Схема и ограничения](https://github.com/haltia-de/device-lenovo-tb-j606l/blob/d89d30c860b43b8f5d568c7b21b42db5a19e7383/docs/dual-boot.md). [План и очередь задач](plans/tab-p11.md) |

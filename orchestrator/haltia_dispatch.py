@@ -4,7 +4,7 @@
 Commands:
   tick [--live]              look at the board and start executors; dry run by default
   run REPO NUMBER MODEL      one executor job; started by `tick --live` in its own systemd unit
-  release-check REPO NUMBER  exit 0 if release:approved on the issue or PR was set by the approver
+  release-check REPO NUMBER  check label attribution for bookkeeping, not human approval (ADR 0011)
 
 Executors get scoped rights (ADR 0006): they edit a plain copy of the tree, with no
 .git, and never push, tag or call GitHub. This script commits, pushes, opens the PR and moves
@@ -55,9 +55,17 @@ DEFAULTS = {
 TEST_TIMEOUT = 600  # seconds for one run of a repository's tests
 
 QUOTA_RE = re.compile(
-    r"(usage|rate|quota)[ _-]?limit|limit (reached|exceeded)|quota exceeded|out of credits|"
-    r"hit your (usage )?limit|too many requests",
-    re.IGNORECASE,
+    r"^(?:(?:API )?Error:\s*|[■●]\s*)?"
+    r"(?:You(?:['’]ve| have) (?:hit|reached) your "
+    r"(?:(?:\d+[ -]hour|weekly|daily|usage) )?limit\b|Usage limit reached\b)",
+    re.IGNORECASE | re.MULTILINE,
+)
+UNAVAILABLE_RE = re.compile(
+    r"^(?:(?:API )?Error:\s*)?(?:503\s+)?(?:service|model) "
+    r"(?:is |temporarily |currently )*unavailable\b[^\n]*$|"
+    r"^(?:(?:API )?Error:\s*)?(?:server|service) (?:is )?overloaded\b[^\n]*$|"
+    r"^(?:Error:\s*)?Please run /login\b[^\n]*$|^API Error:\s*401\b[^\n]*$",
+    re.IGNORECASE | re.MULTILINE,
 )
 
 
@@ -114,8 +122,8 @@ def pick(issues, busy_repos, slots):
     for issue in sorted(issues, key=lambda i: i["createdAt"]):
         names = label_names(issue)
         repo = issue["repository"]["name"]
-        if names & {"agent:working", "agent:review", "agent:blocked"}:
-            skipped.append((issue, "has another agent: label"))
+        if {n for n in names if n.startswith("agent:")} != {"agent:ready"}:
+            skipped.append((issue, "not exclusively agent:ready"))
         elif "needs:tablet" in names:
             skipped.append((issue, "needs the tablet; for a live session"))
         elif model_of(issue) is None:
@@ -131,7 +139,10 @@ def pick(issues, busy_repos, slots):
 
 
 def hit_quota(log_text):
-    return bool(QUOTA_RE.search(log_text[-20000:]))
+    # Generic HTTP 429 / "too many requests" can be an application service,
+    # not the executor's subscription. Match known CLI limit messages only.
+    text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", log_text[-20000:])
+    return bool(QUOTA_RE.search(text))
 
 
 def read_out(out_dir, name, limit=65536):
@@ -335,6 +346,27 @@ def block(repo, number, reason):
     set_labels(repo, number, add=["agent:blocked"], remove=["agent:working", "agent:ready"])
 
 
+def executor_unavailable(repo, number, model, reason):
+    """Advance once along the user's model order; never publish partial output."""
+    current = gh_json("issue", "view", str(number), "-R", f"{ORG}/{repo}", "--json", "state,labels")
+    if (current.get("state", "").upper() != "OPEN" or model_of(current) != model
+            or {n for n in label_names(current) if n.startswith("agent:")} != {"agent:working"}):
+        # A person changed the issue while the executor ran. Keep that decision.
+        return "superseded"
+    index = MODELS.index(model)
+    if index == len(MODELS) - 1:
+        block(repo, number, f"The {model} executor is unavailable ({reason}). "
+              "No next model remains in Claude -> Codex -> Grok; waiting for a person.")
+        return "unavailable"
+    following = MODELS[index + 1]
+    comment(repo, number, f"Dispatcher: {model} is unavailable ({reason}); switching to {following} "
+            "under the user's fallback policy (ADR 0012). Partial uncommitted output is not transferred. "
+            "The next normal tick starts a fresh scoped executor; no release is authorized.")
+    set_labels(repo, number, add=["agent:ready", f"model:{following}"],
+               remove=["agent:working", f"model:{model}"])
+    return "fallback"
+
+
 # --- tick ---
 
 def tick(live):
@@ -532,6 +564,8 @@ def run_job(repo, number, model, cfg, path):
     if not can_write(repo, issue["author"]["login"], writers):
         block(repo, number, "The issue's author has no write access; a maintainer should restate it.")
         return "untrusted"
+    if not shutil.which(model):
+        return executor_unavailable(repo, number, model, "CLI is not installed or not on PATH")
     # A rework: the review findings sit on the open PR of the agent branch, not
     # on the issue, so its comments and reviews join the issue's in time order.
     issue["comments"] = issue.get("comments", []) + pr_comments(repo, number)
@@ -564,15 +598,18 @@ def run_job(repo, number, model, cfg, path):
     sh("systemctl", "--user", "stop", f"{scope}.scope", check=False)
     log_text = log.read_text(errors="replace")
 
-    if rc != 0 and hit_quota(log_text):
-        block(repo, number, f"The {model} subscription limit is reached. "
-              "The issue stays with this model; relabel it to change the executor.")
-        return "quota"
-
     status, reason = read_status(out)
     if status == "blocked":
         block(repo, number, reason or "The executor stopped and gave no reason.")
         return "blocked"
+    if rc != 0 and hit_quota(log_text):
+        return executor_unavailable(repo, number, model, "subscription or service limit reached")
+    if rc != 0 and UNAVAILABLE_RE.search(log_text):
+        return executor_unavailable(repo, number, model, "service or CLI login is unavailable")
+    if rc != 0:
+        block(repo, number, f"The {model} executor failed with exit code {rc}; "
+              "no confirmed model unavailability, so its model stays and no partial output is committed.")
+        return "failed"
 
     delete_requested(work, read_out(out, "delete"))
     apply_replacements(work, out)
