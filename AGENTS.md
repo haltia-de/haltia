@@ -58,8 +58,9 @@ The agent started here does not write product code. It:
   - Grok: mechanical work and research.
 - **Review** (ADR 0008) goes only downward: Claude reviews Codex and Grok;
   Codex reviews Grok; a Claude PR is reviewed by another Claude session (you,
-  or a fresh session when you wrote it). Grok reviews nobody; Codex never
-  reviews Claude.
+  or a fresh session when you wrote it). If the required reviewer is unavailable,
+  ADR 0012 permits Claude -> Codex -> Grok fallback with an independent session;
+  record the reason, model and reviewed SHA. The default order above otherwise holds.
 - **Urgent live work** goes to the repository's running session, with a link
   to the issue when there is one (ADR 0007). Live sessions are named agents in
   herdr: check `herdr agent get`, send with `herdr agent prompt <name> "…"
@@ -72,8 +73,11 @@ The agent started here does not write product code. It:
   as a PR comment.
 - **The dispatcher** (`orchestrator/`, step 3 of ADR 0005) starts executors for
   `agent:ready` issues, at most `max_running` at a time (4 since 21 October 2026, the author's decision; ADR 0005 said two). When a model's subscription limit
-  is reached, it marks the issue `agent:blocked`; it never moves the issue to
-  another model on its own.
+  is reached or its executor is explicitly unavailable, it advances once through
+  Claude -> Codex -> Grok, records the reason, replaces the model label and
+  requeues it (ADR 0012). After Grok it blocks. Application/test failures keep
+  their model. Reviewer fallback follows the same order with an independent
+  session; trust/approval questions still wait for the user.
 - **Executors have scoped rights** (ADR 0006): they only edit a plain copy
   of the tree, without `.git`; the dispatcher commits, pushes, opens the PR
   and moves labels.

@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import haltia_dispatch as d
 
@@ -201,6 +202,87 @@ class ApprovalTest(unittest.TestCase):
         self.assertFalse(d.approved_by([self.ev("labeled", "me"), self.ev("unlabeled", "me")], "me"))
         self.assertFalse(d.approved_by([self.ev("labeled", "me")], ""))
         self.assertTrue(d.approved_by([self.ev("labeled", "bot"), self.ev("labeled", "me")], "me"))
+
+
+class AvailabilityTest(unittest.TestCase):
+    """Run the real job path; fake only GitHub and the external executor."""
+
+    def execute(self, model, log, *, missing=False, stopped=False):
+        labels = {"agent:working", f"model:{model}"}
+        messages = []
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)
+            clone, work = path / "clone", path / "work"
+            clone.mkdir()
+            work.mkdir()
+            (clone / "original").write_text("unchanged")
+            data = {"number": 17, "title": "Fix metadata", "body": "bounded task", "url": "u",
+                    "comments": [], "author": {"login": "maintainer"}, "state": "OPEN"}
+
+            def read_github(*args):
+                return dict(data, labels=[{"name": x} for x in labels])
+
+            def change_labels(repo, number, add=(), remove=()):
+                labels.difference_update(remove)
+                labels.update(add)
+
+            def executor(*args, **kwargs):
+                kwargs["stdout"].write(log)
+                (work / "partial").write_text("not transferable")
+                if stopped:
+                    (work / d.OUT / "status").write_text("blocked: failing application test")
+                return subprocess_result
+
+            subprocess_result = type("Result", (), {"returncode": 1})()
+            with patch.object(d, "gh_json", side_effect=read_github), \
+                 patch.object(d, "can_write", return_value=True), \
+                 patch.object(d, "pr_comments", return_value=[]), \
+                 patch.object(d, "prepare", return_value=(clone, work, "agent/17", "origin/main")) as prepare, \
+                 patch.object(d, "sandbox", side_effect=lambda model, cmd, *rest: cmd), \
+                 patch.object(d.shutil, "which", return_value=None if missing else "/usr/bin/executor"), \
+                 patch.object(d.subprocess, "run", side_effect=executor), \
+                 patch.object(d, "sh", return_value=""), \
+                 patch.object(d, "set_labels", side_effect=change_labels), \
+                 patch.object(d, "comment", side_effect=lambda repo, number, text: messages.append(text)), \
+                 patch.object(d, "git", side_effect=AssertionError("must not commit partial output")):
+                result = d.run_job("packages", 17, model, d.load_config(), path)
+            self.assertEqual((clone / "original").read_text(), "unchanged")
+            self.assertFalse((clone / "partial").exists())
+            return result, labels, messages, prepare.call_count
+
+    def test_subscription_limits_advance_once_without_committing_partial_output(self):
+        for model, following in (("claude", "codex"), ("codex", "grok")):
+            with self.subTest(model=model):
+                result, labels, messages, _ = self.execute(model, "You've hit your usage limit.")
+                self.assertEqual(result, "fallback")
+                self.assertEqual(labels, {"agent:ready", f"model:{following}"})
+                self.assertTrue(any(model in x and following in x for x in messages))
+
+    def test_real_five_hour_limit_advances(self):
+        result, labels, _, _ = self.execute("claude", "You've hit your 5-hour limit · resets later")
+        self.assertEqual(result, "fallback")
+        self.assertEqual(labels, {"agent:ready", "model:codex"})
+
+    def test_service_unavailability_advances(self):
+        result, labels, _, _ = self.execute("claude", "503 Service unavailable")
+        self.assertEqual(result, "fallback")
+        self.assertEqual(labels, {"agent:ready", "model:codex"})
+
+    def test_missing_cli_advances_before_preparing_a_copy(self):
+        result, labels, _, prepared = self.execute("claude", "", missing=True)
+        self.assertEqual(result, "fallback")
+        self.assertEqual(labels, {"agent:ready", "model:codex"})
+        self.assertEqual(prepared, 0)
+
+    def test_last_model_blocks_without_wrapping_to_claude(self):
+        result, labels, _, _ = self.execute("grok", "You've hit your usage limit.")
+        self.assertEqual(result, "unavailable")
+        self.assertEqual(labels, {"agent:blocked", "model:grok"})
+
+    def test_application_failure_does_not_change_model(self):
+        result, labels, _, _ = self.execute("claude", "AssertionError in application test", stopped=True)
+        self.assertEqual(result, "blocked")
+        self.assertEqual(labels, {"agent:blocked", "model:claude"})
 
 
 if __name__ == "__main__":
