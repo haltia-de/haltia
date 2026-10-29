@@ -38,6 +38,14 @@ class PickTest(unittest.TestCase):
         chosen, _ = d.pick([a, b], [], 2)
         self.assertEqual([i["number"] for i in chosen], [1])
 
+    def test_conflicting_or_missing_ready_state_is_never_dispatched(self):
+        issues = [issue("news", 1, ["agent:ready", "agent:deferred", "model:codex"]),
+                  issue("paint", 2, ["agent:ready", "agent:planned", "model:codex"]),
+                  issue("weather", 3, ["model:claude"])]
+        chosen, skipped = d.pick(issues, [], 4)
+        self.assertEqual(chosen, [])
+        self.assertEqual(len(skipped), 3)
+
 
 class HelpersTest(unittest.TestCase):
     def test_unit_name(self):
@@ -207,8 +215,8 @@ class ApprovalTest(unittest.TestCase):
 class AvailabilityTest(unittest.TestCase):
     """Run the real job path; fake only GitHub and the external executor."""
 
-    def execute(self, model, log, *, missing=False, stopped=False):
-        labels = {"agent:working", f"model:{model}"}
+    def execute(self, model, log, *, missing=False, stopped=False, extra_states=()):
+        labels = {"agent:working", f"model:{model}", *extra_states}
         messages = []
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp)
@@ -283,6 +291,25 @@ class AvailabilityTest(unittest.TestCase):
         result, labels, _, _ = self.execute("claude", "AssertionError in application test", stopped=True)
         self.assertEqual(result, "blocked")
         self.assertEqual(labels, {"agent:blocked", "model:claude"})
+
+    def test_auth_error_in_blocked_application_keeps_its_model(self):
+        result, labels, _, _ = self.execute("claude", "authentication required", stopped=True)
+        self.assertEqual(result, "blocked")
+        self.assertEqual(labels, {"agent:blocked", "model:claude"})
+
+    def test_generic_failed_output_is_not_committed_or_reassigned(self):
+        result, labels, _, _ = self.execute("claude", "application: authentication required")
+        self.assertEqual(result, "failed")
+        self.assertEqual(labels, {"agent:blocked", "model:claude"})
+
+    def test_human_added_state_prevents_fallback(self):
+        for state in ("agent:deferred", "agent:planned"):
+            with self.subTest(state=state):
+                result, labels, messages, _ = self.execute(
+                    "claude", "You've hit your usage limit.", extra_states=(state,))
+                self.assertEqual(result, "superseded")
+                self.assertEqual(labels, {"agent:working", "model:claude", state})
+                self.assertEqual(messages, [])
 
 
 if __name__ == "__main__":

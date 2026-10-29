@@ -60,11 +60,11 @@ QUOTA_RE = re.compile(
     re.IGNORECASE,
 )
 UNAVAILABLE_RE = re.compile(
-    r"\b(?:service|model) (?:is |temporarily |currently )*unavailable\b|"
-    r"\b(?:server|service) (?:is )?overloaded\b|\bnot logged in\b|"
-    r"\bauthentication required\b|\bplease (?:run /login|log in)\b|"
-    r"\binvalid (?:api key|authentication credentials)\b",
-    re.IGNORECASE,
+    r"^(?:(?:API )?Error:\s*)?(?:503\s+)?(?:service|model) "
+    r"(?:is |temporarily |currently )*unavailable\b[^\n]*$|"
+    r"^(?:(?:API )?Error:\s*)?(?:server|service) (?:is )?overloaded\b[^\n]*$|"
+    r"^(?:Error:\s*)?Please run /login\b[^\n]*$|^API Error:\s*401\b[^\n]*$",
+    re.IGNORECASE | re.MULTILINE,
 )
 
 
@@ -121,8 +121,8 @@ def pick(issues, busy_repos, slots):
     for issue in sorted(issues, key=lambda i: i["createdAt"]):
         names = label_names(issue)
         repo = issue["repository"]["name"]
-        if names & {"agent:working", "agent:review", "agent:blocked"}:
-            skipped.append((issue, "has another agent: label"))
+        if {n for n in names if n.startswith("agent:")} != {"agent:ready"}:
+            skipped.append((issue, "not exclusively agent:ready"))
         elif "needs:tablet" in names:
             skipped.append((issue, "needs the tablet; for a live session"))
         elif model_of(issue) is None:
@@ -346,7 +346,7 @@ def executor_unavailable(repo, number, model, reason):
     """Advance once along the user's model order; never publish partial output."""
     current = gh_json("issue", "view", str(number), "-R", f"{ORG}/{repo}", "--json", "state,labels")
     if (current.get("state", "").upper() != "OPEN" or model_of(current) != model
-            or "agent:working" not in label_names(current)):
+            or {n for n in label_names(current) if n.startswith("agent:")} != {"agent:working"}):
         # A person changed the issue while the executor ran. Keep that decision.
         return "superseded"
     index = MODELS.index(model)
@@ -594,15 +594,18 @@ def run_job(repo, number, model, cfg, path):
     sh("systemctl", "--user", "stop", f"{scope}.scope", check=False)
     log_text = log.read_text(errors="replace")
 
-    if rc != 0 and hit_quota(log_text):
-        return executor_unavailable(repo, number, model, "subscription or service limit reached")
-    if rc != 0 and UNAVAILABLE_RE.search(log_text):
-        return executor_unavailable(repo, number, model, "service or login is unavailable")
-
     status, reason = read_status(out)
     if status == "blocked":
         block(repo, number, reason or "The executor stopped and gave no reason.")
         return "blocked"
+    if rc != 0 and hit_quota(log_text):
+        return executor_unavailable(repo, number, model, "subscription or service limit reached")
+    if rc != 0 and UNAVAILABLE_RE.search(log_text):
+        return executor_unavailable(repo, number, model, "service or CLI login is unavailable")
+    if rc != 0:
+        block(repo, number, f"The {model} executor failed with exit code {rc}; "
+              "no confirmed model unavailability, so its model stays and no partial output is committed.")
+        return "failed"
 
     delete_requested(work, read_out(out, "delete"))
     apply_replacements(work, out)
