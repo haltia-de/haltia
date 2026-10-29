@@ -30,7 +30,9 @@ apt-get install -y --no-install-recommends /evidence/paint-candidate/PACKAGE xvf
    cmd=['docker','exec',name]+env+['timeout','--kill-after=2','12','xvfb-run','-a','dbus-run-session','--','python3','/evidence/paint-candidate/signal-probe.py',signum]
    rc=call(cmd,suite+'.SIG'+signum+'.log',20);log=(p/(suite+'.SIG'+signum+'.log')).read_text();results.append(dict(suite=suite,check='SIG'+signum,status='pass' if rc==0 and 'SIGNAL_SHUTDOWN_OK' in log else 'fail',exit=rc));print(suite,'SIG'+signum,rc,flush=True)
  finally:
-  if created:subprocess.run(['docker','rm','-f',name],stdout=subprocess.DEVNULL)
+  if created:
+   cleanup=subprocess.run(['docker','rm','-f',name],stdout=subprocess.DEVNULL)
+   results.append(dict(suite=suite,check='container_cleanup',status='pass' if cleanup.returncode==0 else 'fail',exit=cleanup.returncode))
   (p/'candidate.results.json').write_text(json.dumps(results,indent=2))
 
 sys.exit(1 if any(result['status']!='pass' for result in results) else 0)

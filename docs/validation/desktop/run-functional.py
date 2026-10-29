@@ -43,5 +43,8 @@ try:
     rc=call(cmd,p/('source-'+app+'-'+str(number)+'.log'),timeout=90);results.append(dict(app=app,phase='source_test' if app not in ('text','calendar') else 'compile_only_no_test_suite',command=command,exit=rc,status='pass' if rc==0 else 'fail'));print('source',app,number,rc,flush=True)
     (p/'summary.json').write_text(json.dumps(results,indent=2))
 finally:
- if created:subprocess.run(['docker','rm','-f',name],stdout=subprocess.DEVNULL)
+ if created:
+  cleanup=subprocess.run(['docker','rm','-f',name],stdout=subprocess.DEVNULL)
+  results.append(dict(check='container_cleanup',status='pass' if cleanup.returncode==0 else 'fail',exit=cleanup.returncode))
+  (p/'summary.json').write_text(json.dumps(results,indent=2))
 sys.exit(1 if any(result['status']!='pass' for result in results) else 0)

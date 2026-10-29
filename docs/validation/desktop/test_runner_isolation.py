@@ -7,6 +7,7 @@ import os,sys,json
 args=sys.argv[1:]
 with open(os.environ['FAKE_DOCKER_LOG'],'a') as out:out.write(json.dumps(args)+'\n')
 scenario=os.environ['FAKE_DOCKER_SCENARIO']
+if args[0]=='rm' and scenario=='cleanup_failure':sys.exit(19)
 if args[0]=='run':
  if scenario=='run_failure':sys.exit(125)
  if scenario=='build_failure':sys.exit(13)
@@ -34,6 +35,8 @@ class Isolation(unittest.TestCase):
     if artifact:(bundle/'paint-candidate/fixture.deb').write_bytes(b'fake package, never installed')
    r=subprocess.run([sys.executable,str(bundle/script),*args],env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=15)
    calls=[json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
+   results_path=(work/'summary.json') if script=='run-functional.py' else ((work/'source.results.json') if script=='run-source-suites.py' else bundle/'paint-candidate/candidate.results.json')
+   self.last_results=json.loads(results_path.read_text()) if results_path.exists() else []
    return r.returncode,calls
  def assert_owned_cleanup(self,calls,expected):
   runs=[c[c.index('--name')+1] for c in calls if c[0]=='run' and '--name' in c]
@@ -65,6 +68,12 @@ class Isolation(unittest.TestCase):
   rc,calls=self.run_case('run-source-suites.py','suite_failure');self.assertNotEqual(rc,0);self.assert_owned_cleanup(calls,1)
  def test_source_success_cleans_only_owned(self):
   rc,calls=self.run_case('run-source-suites.py','success');self.assertEqual(rc,0);self.assert_owned_cleanup(calls,1)
+ def test_functional_cleanup_failure_is_reported_and_nonzero(self):
+  rc,calls=self.run_case('run-functional.py','cleanup_failure');self.assertNotEqual(rc,0);self.assertTrue(any(r.get('check')=='container_cleanup' and r['status']=='fail' for r in self.last_results))
+ def test_source_cleanup_failure_is_reported_and_nonzero(self):
+  rc,calls=self.run_case('run-source-suites.py','cleanup_failure');self.assertNotEqual(rc,0);self.assertTrue(any(r.get('check')=='container_cleanup' and r['status']=='fail' for r in self.last_results))
+ def test_candidate_cleanup_failure_is_reported_and_nonzero(self):
+  rc,calls=self.run_case('paint-candidate/run-candidate.py','cleanup_failure');self.assertNotEqual(rc,0);self.assertTrue(any(r.get('check')=='container_cleanup' and r['status']=='fail' for r in self.last_results))
  def test_build_failed_command_exits_nonzero(self):
   rc,calls=self.run_case('paint-candidate/build.py','build_failure');self.assertEqual(rc,13);self.assertFalse(any(c[0]=='rm' for c in calls));self.assertIn('--rm',calls[0])
  def test_build_without_deb_fails(self):

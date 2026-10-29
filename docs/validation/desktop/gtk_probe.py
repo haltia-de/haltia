@@ -97,6 +97,13 @@ def tick():
   results.append(dict(check='interaction',status='fail',error=str(exc),traceback=traceback.format_exc()));(out/(appname+'-'+args.phase+'.json')).write_text(json.dumps(results,ensure_ascii=False,indent=2));app.quit();return False
  return True
 GLib.timeout_add_seconds(1,tick)
-app.run(['haltia-'+appname])
+app_exit=app.run(['haltia-'+appname])
+required={'home','settings','after-interaction','after-local-change','returned'}
+if appname in ('music','messenger'):required.add('ui_switch_'+args.phase)
+if appname=='paint':required.update({'picture','painted','gtk_paint_region' if args.phase=='change' else 'paint_region_restart'})
+completed={row['check'] for row in results if row.get('status')=='pass'}
+missing=sorted(required-completed)
+results.append(dict(check='application_exit',status='pass' if app_exit==0 else 'fail',exit=app_exit))
+results.append(dict(check='required_checks',status='pass' if not missing else 'fail',missing=missing))
 (out/(appname+'-'+args.phase+'.json')).write_text(json.dumps(results,ensure_ascii=False,indent=2))
 sys.exit(1 if any(r['status']=='fail' for r in results) else 0)

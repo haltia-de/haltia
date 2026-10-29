@@ -1,15 +1,15 @@
 [
   {
     "file": "README.ru.md",
-    "sha256": "eed105687ce92dbd517d4d3b59a27d173572858cbe9548c98d62dc38f1ce0638"
+    "sha256": "254bbbc0b9942e14510de65a6789adb633e2ac4a4f337e8fa365d2c77d983383"
   },
   {
     "file": "VERIFICATION.ru.md",
-    "sha256": "538c35bb6739e2386c111f4b51ad29f82fad26bd6f3a4e75eaf7b687850b604c"
+    "sha256": "44e856430eeb60b883b4da9783a5c78b96e9f410b3f625a64c63523bade9fbeb"
   },
   {
     "file": "gtk_probe.py",
-    "sha256": "44d4baa73bef4c2e0e43ac0dc525e47c2e63c3de6a1db81bcd99fc0a657ba382"
+    "sha256": "6a03ca6b875be9880032628abf6bfab54bcd89ab40ea3a2184cf4acde1b9618e"
   },
   {
     "file": "paint-candidate/build.py",
@@ -17,7 +17,7 @@
   },
   {
     "file": "paint-candidate/run-candidate.py",
-    "sha256": "82774e1ed921774d7b0ccc79d56b990084ebd0270f5bea44580c6b1e6692514d"
+    "sha256": "d4ceb51b60c69f515f212e0468ad544427410455bdc7f1e1250213bf6e7a7e89"
   },
   {
     "file": "paint-candidate/signal-probe.py",
@@ -29,22 +29,30 @@
   },
   {
     "file": "run-functional.py",
-    "sha256": "dcff901e73d4ec04fea78d81cad968965ccf673476600c09477e804813ff2392"
+    "sha256": "da66c07e1d968bfff7cff5b61d5421ecc73187f17c165f871b5652faf69f791f"
   },
   {
     "file": "run-source-suites.py",
-    "sha256": "40ab602c365c01a5f280521feef9c8d228f11e06d6e19e86c725f932293e5575"
+    "sha256": "f825493759f96f1481b2000b2ac90f265e64c6a890f38bac91b059ad56464760"
   },
   {
     "file": "snapshot-github-main.py",
-    "sha256": "fdb511ad87ac7dc7fe9d3fa800d2831b031e450d7c2b7a072348e313baae53e9"
+    "sha256": "67a7c70bd6d4f753dfecaa4d8c15705331904f5b91a0fb8822ef8383b1a9cea7"
   },
   {
     "file": "snapshot-sources.py",
-    "sha256": "df498da7c18b41960b22ccf955892e7bf41bc0b2660085de14645edeb749f873"
+    "sha256": "2087befa93ab870c067d99f7ed75f087a2eadb0bdb61d3eb1e70dfeedd4f4e78"
+  },
+  {
+    "file": "test_probe_completion.py",
+    "sha256": "6ab0d096664787b67fc4a16c98939fc8089b9a0197a6c89ce9b472969fd7828f"
   },
   {
     "file": "test_runner_isolation.py",
-    "sha256": "8005ba4d9959af18a3a3658ee42f8df13e682ab37a7b0dc98289f7df4a00bed0"
+    "sha256": "5af81e74d65f8ea38c7d261473aadd888dacf6a630ee94285a0adc64f3ae829c"
+  },
+  {
+    "file": "test_snapshot_ownership.py",
+    "sha256": "81c0779da52d68c5e33f4144765e4af4f5c4ae18a04d98d7ae3145d87dfc573e"
   }
 ]

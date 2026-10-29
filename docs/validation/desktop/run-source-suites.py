@@ -23,5 +23,8 @@ try:
    cmd=['docker','exec',name]+env+['timeout','--kill-after=2','90','xvfb-run','-a','dbus-run-session','--','bash','-c','cd /evidence/sources/'+repo+' && '+test]
    rc=call(cmd,repo+'-'+str(index)+'.log',100);results.append(dict(repo=repo,command=test,exit=rc,status='pass' if rc==0 else 'fail'));print(repo,index,rc,flush=True);(p/'source.results.json').write_text(json.dumps(results,indent=2))
 finally:
- if created:subprocess.run(['docker','rm','-f',name],stdout=subprocess.DEVNULL)
+ if created:
+  cleanup=subprocess.run(['docker','rm','-f',name],stdout=subprocess.DEVNULL)
+  results.append(dict(check='container_cleanup',status='pass' if cleanup.returncode==0 else 'fail',exit=cleanup.returncode))
+  (p/'source.results.json').write_text(json.dumps(results,indent=2))
 sys.exit(1 if any(row['status']!='pass' for row in results) else 0)

@@ -2,7 +2,7 @@
 """Archive exact live GitHub main commits without touching existing worktrees."""
 import argparse,concurrent.futures,datetime,hashlib,io,json,pathlib,subprocess,tarfile
 parser=argparse.ArgumentParser();parser.add_argument('--output',type=pathlib.Path,required=True);args=parser.parse_args();p=args.output.resolve();p.mkdir(parents=True,exist_ok=True);p.chmod(0o700)
-if (p/'sources').exists():raise SystemExit('Choose a fresh output directory: sources already exists')
+if (p/'sources').exists() or (p/'source-manifest.json').exists():raise SystemExit('Choose a fresh output directory: sources already exists')
 def snapshot(name):
  endpoint='repos/haltia-de/'+name;info=json.loads(subprocess.check_output(['gh','api',endpoint+'/commits/main'],timeout=35));sha=info['sha'];data=subprocess.check_output(['gh','api',endpoint+'/tarball/'+sha],timeout=60);dest=p/'sources'/name;dest.mkdir(parents=True)
  with tarfile.open(fileobj=io.BytesIO(data),mode='r:gz') as archive:

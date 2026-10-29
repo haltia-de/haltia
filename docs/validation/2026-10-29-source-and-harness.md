@@ -29,3 +29,11 @@ SHA main получены через GitHub API `repos/haltia-de/<repo>/commits/
 Suite kit завершилась успешно, несмотря на многочисленные PyGI/asyncio deprecation и ResourceWarning; зависания/провала не подтверждено. Эти предупреждения не удалены из журнала. Все тесты software-only; физическая камера/микрофон, аккаунты, сообщения, звонки, звук, планшет и личные профили не использовались.
 
 Исходные результаты свежего прогона: `fresh-main/source.results.json`, `fresh-main/*-0.log` и остальные Files logs. Результат исправленного Paint PR23 и опубликованные deb/Flatpak проверки приведены в отдельных исторических отчётах; этот прогон их не повторяет и не заменяет.
+
+## Дополнение r2: результаты повторного root review
+
+Исправлены дополнительные defects только в portable-копиях. RED→GREEN: test_probe_completion.py 7/7; test_snapshot_ownership.py 4/4; test_runner_isolation.py 17/17 (6.890s), итого28. Probe требует app.run=0 и полный набор обязательных checks; Docker cleanup failure записывается и влияет на exit; оба snapshot-helper отвергают существующее дерево или manifest. Реальный Docker этими regression tests не вызывается. После r2 полный E2E не повторялся, включая изменённый cleanup source-only runner.
+
+Аудит прежних runtime JSON: ни одного пустого общего результата; 17 из18 GTK-файлов содержат все обязательные завершённые стадии и соответствуют ранее заявленным выполненным действиям. Единственный неполный файл — functional/screens/paint-restart.json (нет paint_region_restart и painted), ранее явно отмеченный как прерванный с exit137, не PASS. Все шесть кандидатных Paint GTK-прогонов содержат полный набор stages/region checks. Отдельный внутренний app.run return в старых GTK-пробах не записывался: его нельзя восстановить из старого exit harness; полнота стадий/снимков проверена, чистый app.run=0 для этих прежних прогонов ретроспективно не утверждается. Отдельные старые SIGTERM/SIGINT tests проверяли реальный возврат app.run и маркер завершения.
+
+Аудит сохранён отдельно как historical-probe-audit.json; исторические результаты и журналы не переписывались. Более ранние14 fake-Docker tests и source E2E выше относятся к предыдущей версии runner; актуальная r2 граница подтверждена28 regression tests.
