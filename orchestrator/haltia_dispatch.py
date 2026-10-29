@@ -55,9 +55,10 @@ DEFAULTS = {
 TEST_TIMEOUT = 600  # seconds for one run of a repository's tests
 
 QUOTA_RE = re.compile(
-    r"(usage|rate|quota)[ _-]?limit|limit (reached|exceeded)|quota exceeded|out of credits|"
-    r"hit your (?:(?:\d+[ -]hour|weekly|daily|usage) )?limit|too many requests",
-    re.IGNORECASE,
+    r"^(?:(?:API )?Error:\s*|[■●]\s*)?"
+    r"(?:You(?:['’]ve| have) (?:hit|reached) your "
+    r"(?:(?:\d+[ -]hour|weekly|daily|usage) )?limit\b|Usage limit reached\b)",
+    re.IGNORECASE | re.MULTILINE,
 )
 UNAVAILABLE_RE = re.compile(
     r"^(?:(?:API )?Error:\s*)?(?:503\s+)?(?:service|model) "
@@ -138,7 +139,10 @@ def pick(issues, busy_repos, slots):
 
 
 def hit_quota(log_text):
-    return bool(QUOTA_RE.search(log_text[-20000:]))
+    # Generic HTTP 429 / "too many requests" can be an application service,
+    # not the executor's subscription. Match known CLI limit messages only.
+    text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", log_text[-20000:])
+    return bool(QUOTA_RE.search(text))
 
 
 def read_out(out_dir, name, limit=65536):

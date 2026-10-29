@@ -54,7 +54,8 @@ class HelpersTest(unittest.TestCase):
 
     def test_quota(self):
         self.assertTrue(d.hit_quota("Error: You've hit your usage limit. Try again at 14:00."))
-        self.assertTrue(d.hit_quota("429 Too Many Requests"))
+        self.assertTrue(d.hit_quota("You’ve hit your usage limit. Upgrade to Pro or try again later."))
+        self.assertFalse(d.hit_quota("429 Too Many Requests"))
         self.assertFalse(d.hit_quota("All tests passed."))
 
     def test_status(self):
@@ -298,9 +299,12 @@ class AvailabilityTest(unittest.TestCase):
         self.assertEqual(labels, {"agent:blocked", "model:claude"})
 
     def test_generic_failed_output_is_not_committed_or_reassigned(self):
-        result, labels, _, _ = self.execute("claude", "application: authentication required")
-        self.assertEqual(result, "failed")
-        self.assertEqual(labels, {"agent:blocked", "model:claude"})
+        for log in ("application: authentication required",
+                    "Traceback (most recent call last):\nrequests.exceptions.HTTPError: 429 Too Many Requests"):
+            with self.subTest(log=log):
+                result, labels, _, _ = self.execute("claude", log)
+                self.assertEqual(result, "failed")
+                self.assertEqual(labels, {"agent:blocked", "model:claude"})
 
     def test_human_added_state_prevents_fallback(self):
         for state in ("agent:deferred", "agent:planned"):

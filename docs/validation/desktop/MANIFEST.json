@@ -1,0 +1,50 @@
+[
+  {
+    "file": "README.ru.md",
+    "sha256": "eed105687ce92dbd517d4d3b59a27d173572858cbe9548c98d62dc38f1ce0638"
+  },
+  {
+    "file": "VERIFICATION.ru.md",
+    "sha256": "538c35bb6739e2386c111f4b51ad29f82fad26bd6f3a4e75eaf7b687850b604c"
+  },
+  {
+    "file": "gtk_probe.py",
+    "sha256": "44d4baa73bef4c2e0e43ac0dc525e47c2e63c3de6a1db81bcd99fc0a657ba382"
+  },
+  {
+    "file": "paint-candidate/build.py",
+    "sha256": "8aadb80770441358e5fb8c96e2cdfc424035fd47231fd7f6c4ad78dd61ca25b4"
+  },
+  {
+    "file": "paint-candidate/run-candidate.py",
+    "sha256": "82774e1ed921774d7b0ccc79d56b990084ebd0270f5bea44580c6b1e6692514d"
+  },
+  {
+    "file": "paint-candidate/signal-probe.py",
+    "sha256": "19839d57bfc2335a7b41a18b2c010f2abed8ad493c0c68fdc3b3cf80355591f1"
+  },
+  {
+    "file": "prepare-paint-candidate.py",
+    "sha256": "e8eb65bb497d198a29b1c67c9b71226711ce1cb8a595c1b320f3c406dc058d94"
+  },
+  {
+    "file": "run-functional.py",
+    "sha256": "dcff901e73d4ec04fea78d81cad968965ccf673476600c09477e804813ff2392"
+  },
+  {
+    "file": "run-source-suites.py",
+    "sha256": "40ab602c365c01a5f280521feef9c8d228f11e06d6e19e86c725f932293e5575"
+  },
+  {
+    "file": "snapshot-github-main.py",
+    "sha256": "fdb511ad87ac7dc7fe9d3fa800d2831b031e450d7c2b7a072348e313baae53e9"
+  },
+  {
+    "file": "snapshot-sources.py",
+    "sha256": "df498da7c18b41960b22ccf955892e7bf41bc0b2660085de14645edeb749f873"
+  },
+  {
+    "file": "test_runner_isolation.py",
+    "sha256": "8005ba4d9959af18a3a3658ee42f8df13e682ab37a7b0dc98289f7df4a00bed0"
+  }
+]
