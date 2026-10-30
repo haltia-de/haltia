@@ -35,7 +35,9 @@ offline test и независимое ревью; реальный выпуск
 
 Частичное исправление [#89](https://github.com/haltia-de/messenger/pull/89)
 слито как `9a1bab5a496c2c5b857a5dd72061d8afa2820d3b`. Независимые
-проверки задержанного pipeline NULL и позднего received-потока дали
+проверки сравнивали BASE `9cdb42195947977580fbd9febbc81694393a7ac9`
+с HEAD `f52850c3179b27d876536e10a6df3d64abd5aa7f`, а не с SHA squash-коммита.
+Проверки задержанного pipeline NULL и позднего received-потока дали
 BASE RED → HEAD GREEN; calls/shutdown прошли в обоих снимках. Synthetic
 audio/video воспроизвели прежние ICE failures на базе и head. Подробности
 прежней [проверки #78](2026-10-29-messenger-pr78.md) не заменяют эту проверку.
@@ -66,14 +68,16 @@ traceback. Эти положительные результаты не сним�
 кэша и scratch fixture; production prune отсутствует. Committed cache test
 прошёл, но независимое ревью обнаружило противоречие: входящие сообщения
 обновляют mtime, поэтому предложенная политика по mtime не отражает
-давность открытия чата. Документ и fixture возвращены на доработку.
+давность открытия чата. Документ и fixture требуют доработки;
+[блокер и остальные замечания ревью приложены к PR](https://github.com/haltia-de/messenger/pull/91#issuecomment-6515840433).
 Число 200 — предложение, не разрешение удалять данные.
 
 Текущие владельцы остатка: [#84](https://github.com/haltia-de/messenger/issues/84),
 [#85](https://github.com/haltia-de/messenger/issues/85),
 [#86](https://github.com/haltia-de/messenger/issues/86),
 [#88](https://github.com/haltia-de/messenger/issues/88). Переходы исполнителей
-Claude → Codex → Grok после наблюдённых лимитов записаны в issues; это не
+Claude → Codex → Grok после наблюдённых лимитов записаны в issues по
+[ADR 0012](../adr/0012-model-availability-fallback.md); это не
 основание менять модель из-за обычного дефекта теста или продукта.
 
 ## Video и GTK 3
