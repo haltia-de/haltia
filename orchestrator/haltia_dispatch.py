@@ -160,6 +160,17 @@ def read_out(out_dir, name, limit=65536):
         return f.read(limit).decode("utf-8", errors="replace")
 
 
+def remove_empty_codex_git_marker(work, model):
+    """Discard only an empty real root marker after the Codex scope has stopped."""
+    marker = work / ".git"
+    if model != "codex" or marker.is_symlink():
+        return
+    try:
+        marker.rmdir()  # Atomic and nonrecursive: files and populated directories stay.
+    except OSError:
+        pass  # The unchanged metadata guard below rejects anything left behind.
+
+
 def nested_git(work):
     """Paths of any .git file or directory the executor left in its copy."""
     return [str(p.relative_to(work)) for p in work.rglob(".git")]
@@ -613,6 +624,7 @@ def run_job(repo, number, model, cfg, path):
 
     delete_requested(work, read_out(out, "delete"))
     apply_replacements(work, out)
+    remove_empty_codex_git_marker(work, model)
     if found := nested_git(work):
         block(repo, number, f"The {model} executor left git metadata in its copy ({', '.join(found[:5])}); "
               "nothing was committed.")
