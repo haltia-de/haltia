@@ -213,6 +213,87 @@ class ApprovalTest(unittest.TestCase):
         self.assertTrue(d.approved_by([self.ev("labeled", "bot"), self.ev("labeled", "me")], "me"))
 
 
+
+class MetadataGuardTest(unittest.TestCase):
+    def execute(self, artifact, model="codex"):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            clone, work = root / "clone", root / "work"
+            clone.mkdir()
+            work.mkdir()
+            (clone / ".git").mkdir()
+            sentinel = clone / ".git" / "config"
+            sentinel.write_text("dispatcher metadata")
+            outside = root / "outside"
+            outside.mkdir()
+            (outside / "config").write_text("private")
+            (work / "source.py").write_text("changed")
+            copied = []
+
+            def executor(*args, **kwargs):
+                marker = work / ".git"
+                if artifact == "nested":
+                    marker = work / "sub" / ".git"
+                    marker.parent.mkdir()
+                if artifact == "file":
+                    marker.write_text("gitdir: elsewhere")
+                elif artifact == "symlink":
+                    marker.symlink_to(outside, target_is_directory=True)
+                else:
+                    marker.mkdir()
+                    if artifact == "populated":
+                        (marker / "config").write_text("metadata")
+                return type("Result", (), {"returncode": 0})()
+
+            def shell(*args, **kwargs):
+                if args[0] == "rsync":
+                    self.assertEqual(d.nested_git(work), [])
+                    self.assertEqual((work / "source.py").read_text(), "changed")
+                    copied.append(True)
+                return ""
+
+            def github(*args):
+                if args[:2] == ("pr", "list"):
+                    return [{"number": 1}]
+                return {"number": 88, "title": "Bounded fix", "body": "Fix", "url": "u",
+                        "comments": [], "author": {"login": "maintainer"}}
+
+            with patch.object(d, "gh_json", side_effect=github), \
+                 patch.object(d, "can_write", return_value=True), \
+                 patch.object(d, "pr_comments", return_value=[]), \
+                 patch.object(d, "prepare", return_value=(clone, work, "agent/88", "base")), \
+                 patch.object(d, "sandbox", side_effect=lambda model, cmd, *rest: cmd), \
+                 patch.object(d.shutil, "which", return_value="executor"), \
+                 patch.object(d.subprocess, "run", side_effect=executor), \
+                 patch.object(d, "sh", side_effect=shell), \
+                 patch.object(d, "test_command", return_value=None), \
+                 patch.object(d, "git", return_value="changed") as git, \
+                 patch.object(d, "set_labels"), \
+                 patch.object(d, "block") as block:
+                result = d.run_job("messenger", 88, model, d.load_config(), root)
+            self.assertEqual(sentinel.read_text(), "dispatcher metadata")
+            self.assertEqual((outside / "config").read_text(), "private")
+            if result == "tampered":
+                git.assert_not_called()
+                block.assert_called_once()
+                self.assertEqual(copied, [])
+            else:
+                self.assertEqual(copied, [True])
+                block.assert_not_called()
+            return result
+
+    def test_empty_codex_root_marker_does_not_block_transfer(self):
+        self.assertEqual(self.execute("empty"), "review")
+
+    def test_git_metadata_and_links_still_block(self):
+        for artifact in ("populated", "file", "symlink", "nested"):
+            with self.subTest(artifact=artifact):
+                self.assertEqual(self.execute(artifact), "tampered")
+
+    def test_other_models_keep_strict_metadata_guard(self):
+        self.assertEqual(self.execute("empty", "grok"), "tampered")
+
+
 class AvailabilityTest(unittest.TestCase):
     """Run the real job path; fake only GitHub and the external executor."""
 
